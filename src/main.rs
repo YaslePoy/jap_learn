@@ -6,10 +6,10 @@ mod writing;
 
 use crate::quiz::*;
 use crate::selector::*;
+use crate::writing::{WritingMessage, WritingState};
 use crate::Page::{Quiz, Selector, Writing};
 use iced::widget::text;
 use iced::Element;
-use crate::writing::{WritingMessage, WritingState};
 
 fn main() -> iced::Result {
     iced::application("A kana learn app", ScreenState::update, ScreenState::view).run()

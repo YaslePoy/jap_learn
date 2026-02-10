@@ -87,7 +87,10 @@ impl WritingState {
 
     fn answers(&self) -> Element<'_, WritingMessage> {
         if self.set.is_empty() {
-            text!("{}", self.kana_total).font(Font::with_name("AppleGothic")).size(36).into()
+            text!("{}", self.kana_total)
+                .font(Font::with_name("AppleGothic"))
+                .size(36)
+                .into()
         } else {
             vertical_space().height(36).into()
         }
