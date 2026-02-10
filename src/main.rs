@@ -1,12 +1,14 @@
 mod lang;
 mod quiz;
 mod selector;
+mod writing;
 
 use crate::quiz::*;
 use crate::selector::*;
-use crate::Page::{Quiz, Selector};
+use crate::Page::{Quiz, Selector, Writing};
 use iced::widget::text;
 use iced::Element;
+use crate::writing::{WritingMessage, WritingState};
 
 fn main() -> iced::Result {
     iced::application("A kana learn app", ScreenState::update, ScreenState::view).run()
@@ -16,11 +18,13 @@ fn main() -> iced::Result {
 pub enum RootMessage {
     Selector(SelectorMessage),
     Quiz(QuizMessage),
+    Writing(WritingMessage),
 }
 
 enum Page {
     Selector(SelectorState),
     Quiz(QuizState),
+    Writing(WritingState),
     Back,
 }
 
@@ -44,11 +48,11 @@ impl Default for ScreenState {
 
 impl ScreenState {
     pub fn update(&mut self, message: RootMessage) {
-        state_update!(message, self.stack, Selector, Quiz);
+        state_update!(message, self.stack, Selector, Quiz, Writing);
     }
 
     pub fn view(&self) -> Element<'_, RootMessage> {
-        view_navigation!(self.stack, Quiz, Selector)
+        view_navigation!(self.stack, Quiz, Selector, Writing)
     }
 }
 
