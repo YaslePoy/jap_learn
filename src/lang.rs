@@ -181,7 +181,7 @@ impl KanaSet {
 
     pub fn next(&mut self) -> (String, String) {
         let current_set = self.list();
-
+        
         let mut rand = rand::rng();
         let index: u32 = rand.random();
         current_set[index as usize % current_set.len()].clone()

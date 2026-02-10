@@ -1,3 +1,4 @@
+#![windows_subsystem = "windows"]
 mod lang;
 mod quiz;
 mod selector;

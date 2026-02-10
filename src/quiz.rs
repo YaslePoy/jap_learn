@@ -3,6 +3,7 @@ use crate::Page::Back;
 use crate::{NavigatedPage, Page};
 use iced::widget::*;
 use iced::{alignment, Element, Fill, Font};
+use rand::seq::SliceRandom;
 
 #[derive(Clone, Debug)]
 pub struct QuizState {
@@ -10,6 +11,7 @@ pub struct QuizState {
     current_roman: String,
     correct_roman: String,
     pub(crate) set: KanaSet,
+    queue: Vec<(String, String)>,
     score: Score,
     is_help: bool,
 }
@@ -32,6 +34,7 @@ impl QuizState {
             is_help: false,
             current_roman: "".to_string(),
             set: KanaSet::hiragana(),
+            queue: Vec::new(),
             score: Score {
                 total: 0,
                 correct: 0,
@@ -75,7 +78,17 @@ impl QuizState {
 
     fn update_showed(&mut self) {
         self.current_roman = String::new();
-        let pair = self.set.next();
+        let queue = &mut self.queue;
+
+        if queue.is_empty() {
+            for pair in self.set.list() {
+                queue.push(pair);
+            }
+
+            queue.shuffle(&mut rand::rng());
+        }
+
+        let pair = self.queue.pop().unwrap();
         self.kana = pair.0;
         self.correct_roman = pair.1;
     }
