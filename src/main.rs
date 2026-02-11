@@ -28,7 +28,7 @@ enum Page {
     Selector(SelectorState),
     Quiz(QuizState),
     Writing(WritingState),
-    Back,
+    PreviousPage,
 }
 
 impl Default for Page {
@@ -93,7 +93,7 @@ macro_rules! state_update {
 macro_rules! message_navigation {
     ($msg:expr, $stack:expr, $state:expr) => {
         if let Some(new_page) = $state.navigate(&$msg) {
-            if let Page::Back = new_page {
+            if let Page::PreviousPage = new_page {
                 $stack.pop();
                 return;
             }

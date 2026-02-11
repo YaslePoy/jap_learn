@@ -1,5 +1,5 @@
 use crate::lang::KanaSet;
-use crate::Page::Back;
+use crate::Page::PreviousPage;
 use crate::{NavigatedPage, Page};
 use iced::widget::*;
 use iced::{alignment, Element, Fill, Font};
@@ -19,7 +19,7 @@ pub struct WritingState {
 impl NavigatedPage<WritingMessage> for WritingState {
     fn navigate(&self, message: &WritingMessage) -> Option<Page> {
         if let WritingMessage::Back = message {
-            Some(Back)
+            Some(PreviousPage)
         } else {
             None
         }

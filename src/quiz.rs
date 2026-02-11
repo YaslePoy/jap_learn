@@ -1,5 +1,5 @@
 use crate::lang::KanaSet;
-use crate::Page::Back;
+use crate::Page::PreviousPage;
 use crate::{NavigatedPage, Page};
 use iced::widget::*;
 use iced::{alignment, Element, Fill, Font};
@@ -19,7 +19,7 @@ pub struct QuizState {
 impl NavigatedPage<QuizMessage> for QuizState {
     fn navigate(&self, message: &QuizMessage) -> Option<Page> {
         if let QuizMessage::Back = message {
-            Some(Back)
+            Some(PreviousPage)
         } else {
             None
         }
@@ -61,7 +61,6 @@ impl QuizState {
                     return;
                 }
                 self.current_roman = content;
-                println!("Content: {}", self.current_roman);
                 if self.correct_roman == self.current_roman {
                     if self.is_help == false {
                         self.score.correct += 1;
