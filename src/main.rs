@@ -9,10 +9,12 @@ use crate::selector::*;
 use crate::writing::{WritingMessage, WritingState};
 use crate::Page::{Quiz, Selector, Writing};
 use iced::widget::text;
+use iced::Task;
 use iced::Element;
 
 fn main() -> iced::Result {
-    iced::application("A kana learn app", ScreenState::update, ScreenState::view).run()
+    iced::application(ScreenState::boot, ScreenState::update, ScreenState::view)
+        .title("Kana learn app").run()
 }
 
 #[derive(Debug, Clone)]
@@ -48,6 +50,9 @@ impl Default for ScreenState {
 }
 
 impl ScreenState {
+    pub fn boot() -> (ScreenState, Task<RootMessage>){
+        (ScreenState::default(), Task::none())
+    }
     pub fn update(&mut self, message: RootMessage) {
         state_update!(message, self.stack, Selector, Quiz, Writing);
     }

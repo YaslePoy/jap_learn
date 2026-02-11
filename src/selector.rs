@@ -81,7 +81,7 @@ impl SelectorState {
 
             let mut chars_column: Column<'_, _> = Column::new();
             chars_column =
-                chars_column.push(checkbox("", self.set.include_map[i]).on_toggle(setup_checked));
+                chars_column.push(checkbox(self.set.include_map[i]).on_toggle(setup_checked));
 
             for v in &self.set.dictionary[i] {
                 chars_column = chars_column.push(

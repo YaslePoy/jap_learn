@@ -92,7 +92,7 @@ impl WritingState {
                 .size(36)
                 .into()
         } else {
-            vertical_space().height(36).into()
+            space().height(36).into()
         }
     }
 }

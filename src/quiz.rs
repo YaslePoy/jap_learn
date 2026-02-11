@@ -98,7 +98,7 @@ impl QuizState {
             iced::widget::column![
                 row![
                     text!("{}", self.kana.to_uppercase())
-                        .size(48)
+                        .size(54)
                         .font(Font::with_name("AppleGothic")),
                     text!(
                         "{}",
