@@ -2,7 +2,7 @@ use crate::lang::KanaSet;
 use crate::Page::PreviousPage;
 use crate::{NavigatedPage, Page};
 use iced::widget::*;
-use iced::{alignment, Element, Fill, Font};
+use iced::{alignment, Element, Fill};
 use rand::seq::SliceRandom;
 
 #[derive(Clone, Debug)]
@@ -12,7 +12,6 @@ pub struct WritingState {
     original_set: Vec<(String, String)>,
     kana_total: String,
     roman_total: String,
-    is_help: bool,
     next_text: String,
 }
 
@@ -36,7 +35,6 @@ impl WritingState {
             original_set: list,
             kana_total: "".to_string(),
             roman_total: "".to_string(),
-            is_help: false,
             next_text: "Дальше".to_string(),
         }
     }
@@ -82,13 +80,14 @@ impl WritingState {
             .align_x(alignment::Horizontal::Center),
         )
         .center_x(Fill)
+        .center_y(Fill)
+            .padding(10)
         .into()
     }
 
     fn answers(&self) -> Element<'_, WritingMessage> {
         if self.set.is_empty() {
             text!("{}", self.kana_total)
-                .font(Font::with_name("AppleGothic"))
                 .size(36)
                 .into()
         } else {
@@ -100,11 +99,4 @@ impl WritingState {
 pub enum WritingMessage {
     Next,
     Back,
-}
-
-#[derive(Default, Debug, Clone)]
-pub struct Score {
-    total: i32,
-    correct: i32,
-    fail: i32,
 }

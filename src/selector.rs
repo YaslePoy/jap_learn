@@ -4,7 +4,7 @@ use crate::writing::WritingState;
 use crate::Page::{Quiz, Writing};
 use crate::{NavigatedPage, Page, QuizState};
 use iced::widget::*;
-use iced::{alignment, Element, Font};
+use iced::{alignment, Element};
 
 pub struct SelectorState {
     pub set: KanaSet,
@@ -87,8 +87,7 @@ impl SelectorState {
                 chars_column = chars_column.push(
                     container(
                         text!("{}", v.0.clone().to_uppercase())
-                            .size(36)
-                            .font(Font::with_name("AppleGothic")),
+                            .size(36),
                     )
                     .padding(20)
                     .style(container::rounded_box),

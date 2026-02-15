@@ -2,7 +2,7 @@ use crate::lang::KanaSet;
 use crate::Page::PreviousPage;
 use crate::{NavigatedPage, Page};
 use iced::widget::*;
-use iced::{alignment, Element, Fill, Font};
+use iced::{alignment, Element, Fill};
 use rand::seq::SliceRandom;
 
 #[derive(Clone, Debug)]
@@ -97,8 +97,7 @@ impl QuizState {
             iced::widget::column![
                 row![
                     text!("{}", self.kana.to_uppercase())
-                        .size(54)
-                        .font(Font::with_name("AppleGothic")),
+                        .size(54),
                     text!(
                         "{}",
                         if self.is_help {
@@ -129,6 +128,7 @@ impl QuizState {
             .spacing(10)
             .align_x(alignment::Horizontal::Center),
         )
+            .center_y(Fill)
         .center_x(Fill)
         .into()
     }

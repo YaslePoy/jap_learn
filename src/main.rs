@@ -14,7 +14,7 @@ use iced::Element;
 
 fn main() -> iced::Result {
     iced::application(ScreenState::boot, ScreenState::update, ScreenState::view)
-        .title("Kana learn app").run()
+        .title("Kana learn app").font(include_bytes!("../noto.ttf")).run()
 }
 
 #[derive(Debug, Clone)]
