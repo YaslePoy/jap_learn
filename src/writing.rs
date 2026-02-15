@@ -55,6 +55,7 @@ impl WritingState {
             self.kana_total = "".to_string();
 
             self.set = self.original_set.clone();
+            self.set.shuffle(&mut rand::rng());
             return;
         }
 
