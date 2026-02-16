@@ -69,6 +69,10 @@ impl QuizState {
                     self.is_help = false;
                     self.score.total += 1;
                     self.update_showed()
+                } else if self.current_roman.len() == self.correct_roman.len() {
+                    self.score.total += 1;
+                    self.score.fail += 1;
+                    self.update_showed()
                 }
             }
             QuizMessage::Back => todo!(),
@@ -96,8 +100,7 @@ impl QuizState {
         container(
             iced::widget::column![
                 row![
-                    text!("{}", self.kana.to_uppercase())
-                        .size(54),
+                    text!("{}", self.kana.to_uppercase()).size(54),
                     text!(
                         "{}",
                         if self.is_help {
@@ -128,7 +131,7 @@ impl QuizState {
             .spacing(10)
             .align_x(alignment::Horizontal::Center),
         )
-            .center_y(Fill)
+        .center_y(Fill)
         .center_x(Fill)
         .into()
     }

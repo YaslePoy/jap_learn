@@ -13,6 +13,7 @@ pub struct WritingState {
     kana_total: String,
     roman_total: String,
     next_text: String,
+    show_all: bool,
 }
 
 impl NavigatedPage<WritingMessage> for WritingState {
@@ -36,6 +37,7 @@ impl WritingState {
             kana_total: "".to_string(),
             roman_total: "".to_string(),
             next_text: "Дальше".to_string(),
+            show_all: false,
         }
     }
 }
@@ -45,6 +47,7 @@ impl WritingState {
         match message {
             WritingMessage::Back => todo!(),
             WritingMessage::Next => self.next(),
+            WritingMessage::SwitchShowMode(b) => self.show_all = b,
         }
     }
 
@@ -59,16 +62,33 @@ impl WritingState {
             return;
         }
 
-        let current = self.set.pop().unwrap();
-        self.kana_total += &*format!("{} ", &current.0).to_string();
-        self.roman_total += &*format!("{} ", &current.1.clone()).to_string();
-        self.kana = current.1;
+        if self.show_all {
+
+            if self.set.is_empty() == false && self.kana_total.is_empty() == false {
+                self.set.clear();
+            }
+            for pair in &self.set {
+                self.kana = "---".to_string();
+                self.roman_total += &*format!("{} ", &pair.1.clone()).to_string();
+                self.kana_total += &*format!("{} ", &pair.0).to_string();
+            }
+
+
+        } else {
+            let current = self.set.pop().unwrap();
+            self.kana_total += &*format!("{} ", &current.0).to_string();
+            self.roman_total += &*format!("{} ", &current.1.clone()).to_string();
+            self.kana = current.1;
+        }
     }
 
     pub fn view(&self) -> Element<'_, WritingMessage> {
         container(
             iced::widget::column![
-                text!("{}", self.roman_total).size(24),
+                checkbox(self.show_all)
+                    .label("Показывать все сразу")
+                    .on_toggle(WritingMessage::SwitchShowMode),
+                text!("{}", self.roman_total).size(34),
                 text!("{}", self.kana).size(48),
                 self.answers(),
                 row![
@@ -82,15 +102,13 @@ impl WritingState {
         )
         .center_x(Fill)
         .center_y(Fill)
-            .padding(10)
+        .padding(10)
         .into()
     }
 
     fn answers(&self) -> Element<'_, WritingMessage> {
-        if self.set.is_empty() {
-            text!("{}", self.kana_total)
-                .size(36)
-                .into()
+        if self.set.is_empty()  {
+            text!("{}", self.kana_total).size(36).into()
         } else {
             space().height(36).into()
         }
@@ -100,4 +118,5 @@ impl WritingState {
 pub enum WritingMessage {
     Next,
     Back,
+    SwitchShowMode(bool),
 }
