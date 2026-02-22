@@ -3,14 +3,18 @@ mod lang;
 mod quiz;
 mod selector;
 mod writing;
+mod dictionary;
+mod dictionary_test;
 
 use crate::quiz::*;
 use crate::selector::*;
 use crate::writing::{WritingMessage, WritingState};
-use crate::Page::{Quiz, Selector, Writing};
+use crate::Page::{Dictionary, DictionaryQuiz, Quiz, Selector, Writing};
 use iced::widget::text;
 use iced::Task;
 use iced::Element;
+use crate::dictionary::{DictionaryMessage, DictionaryState};
+use crate::dictionary_test::{DictionaryQuizMessage, DictionaryQuizState};
 
 fn main() -> iced::Result {
     iced::application(ScreenState::boot, ScreenState::update, ScreenState::view)
@@ -22,12 +26,16 @@ pub enum RootMessage {
     Selector(SelectorMessage),
     Quiz(QuizMessage),
     Writing(WritingMessage),
+    Dictionary(DictionaryMessage),
+    DictionaryQuiz(DictionaryQuizMessage),
 }
 
 enum Page {
     Selector(SelectorState),
     Quiz(QuizState),
     Writing(WritingState),
+    Dictionary(DictionaryState),
+    DictionaryQuiz(DictionaryQuizState),
     PreviousPage,
 }
 
@@ -53,12 +61,13 @@ impl ScreenState {
     pub fn boot() -> (ScreenState, Task<RootMessage>){
         (ScreenState::default(), Task::none())
     }
-    pub fn update(&mut self, message: RootMessage) {
-        state_update!(message, self.stack, Selector, Quiz, Writing);
+    pub fn update(&mut self, message: RootMessage)  -> Task<RootMessage> {
+        state_update!(message, self.stack, Selector, Quiz, Writing, Dictionary, DictionaryQuiz);
+        Task::none()
     }
 
     pub fn view(&self) -> Element<'_, RootMessage> {
-        view_navigation!(self.stack, Quiz, Selector, Writing)
+        view_navigation!(self.stack, Quiz, Selector, Writing, Dictionary, DictionaryQuiz)
     }
 }
 
@@ -95,11 +104,11 @@ macro_rules! message_navigation {
         if let Some(new_page) = $state.navigate(&$msg) {
             if let Page::PreviousPage = new_page {
                 $stack.pop();
-                return;
+                return Task::none();
             }
             $stack.push(new_page);
         } else {
-            $state.update($msg);
+            return $state.update($msg);
         }
     };
 }

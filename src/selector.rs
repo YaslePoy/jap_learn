@@ -2,9 +2,10 @@ use crate::lang::{KanaSet, KanaType};
 use crate::selector::SelectorMessage::ChangeMode;
 use crate::writing::WritingState;
 use crate::Page::{Quiz, Writing};
-use crate::{NavigatedPage, Page, QuizState};
+use crate::{NavigatedPage, Page, QuizState, RootMessage};
 use iced::widget::*;
-use iced::{alignment, Element};
+use iced::{alignment, Element, Task};
+use crate::dictionary::DictionaryState;
 
 pub struct SelectorState {
     pub set: KanaSet,
@@ -26,6 +27,7 @@ pub enum SelectorMessage {
     Goto,
     Check(usize, bool),
     ChangeMode(bool),
+    ToDictionary,
 }
 
 impl NavigatedPage<SelectorMessage> for SelectorState {
@@ -40,27 +42,32 @@ impl NavigatedPage<SelectorMessage> for SelectorState {
                 Some(Quiz(quiz))
             };
         }
+        if let SelectorMessage::ToDictionary = message {
+            return Some(Page::Dictionary(DictionaryState::default()))
+        }
         None
     }
 }
 
 impl SelectorState {
-    pub fn update(&mut self, message: SelectorMessage) {
+    pub fn update(&mut self, message: SelectorMessage)  -> Task<RootMessage> {
         match message {
             SelectorMessage::Change => match self.set.chars_type {
                 KanaType::Katakana => self.set = KanaSet::hiragana(),
                 KanaType::Hiragana => self.set = KanaSet::katakana(),
             },
-            SelectorMessage::Goto => {}
             SelectorMessage::Check(i, b) => self.set.include_map[i] = b,
             ChangeMode(b) => self.is_writing = b,
+            _ => {}
         }
+        Task::none()
     }
 
     pub fn view(&self) -> Element<'_, SelectorMessage> {
         container(
             iced::widget::column![
-                button("Переключить").on_press(SelectorMessage::Change),
+                row![button("Переключить азбуки").on_press(SelectorMessage::Change),
+                button("Словарь").on_press(SelectorMessage::ToDictionary),].spacing(10),
                 self.rows_selector(),
                 toggler(self.is_writing)
                     .label("Режим письма")
@@ -85,12 +92,9 @@ impl SelectorState {
 
             for v in &self.set.dictionary[i] {
                 chars_column = chars_column.push(
-                    container(
-                        text!("{}", v.0.clone().to_uppercase())
-                            .size(36),
-                    )
-                    .padding(20)
-                    .style(container::rounded_box),
+                    container(text!("{}", v.0.clone().to_uppercase()).size(36))
+                        .padding(20)
+                        .style(container::rounded_box),
                 );
             }
 

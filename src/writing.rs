@@ -1,8 +1,8 @@
 use crate::lang::KanaSet;
 use crate::Page::PreviousPage;
-use crate::{NavigatedPage, Page};
+use crate::{NavigatedPage, Page, RootMessage};
 use iced::widget::*;
-use iced::{alignment, Element, Fill};
+use iced::{alignment, Element, Fill, Task};
 use rand::seq::SliceRandom;
 
 #[derive(Clone, Debug)]
@@ -43,12 +43,13 @@ impl WritingState {
 }
 
 impl WritingState {
-    pub fn update(&mut self, message: WritingMessage) {
+    pub fn update(&mut self, message: WritingMessage) -> Task<RootMessage>  {
         match message {
             WritingMessage::Back => todo!(),
             WritingMessage::Next => self.next(),
             WritingMessage::SwitchShowMode(b) => self.show_all = b,
         }
+        Task::none()
     }
 
     fn next(&mut self) {

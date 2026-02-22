@@ -1,8 +1,8 @@
 use crate::lang::KanaSet;
 use crate::Page::PreviousPage;
-use crate::{NavigatedPage, Page};
+use crate::{NavigatedPage, Page, RootMessage};
 use iced::widget::*;
-use iced::{alignment, Element, Fill};
+use iced::{alignment, Element, Fill, Task};
 use rand::seq::SliceRandom;
 
 #[derive(Clone, Debug)]
@@ -51,14 +51,14 @@ impl Default for QuizState {
 }
 
 impl QuizState {
-    pub fn update(&mut self, message: QuizMessage) {
+    pub fn update(&mut self, message: QuizMessage) -> Task<RootMessage> {
         match message {
             QuizMessage::ContentChanged(content) => {
                 if content.contains("`") {
                     self.is_help = true;
                     self.score.fail += 1;
 
-                    return;
+                    return Task::none();
                 }
                 self.current_roman = content;
                 if self.correct_roman == self.current_roman {
@@ -77,6 +77,7 @@ impl QuizState {
             }
             QuizMessage::Back => todo!(),
         }
+        Task::none()
     }
 
     fn update_showed(&mut self) {
@@ -144,7 +145,7 @@ pub enum QuizMessage {
 
 #[derive(Default, Debug, Clone)]
 pub struct Score {
-    total: i32,
-    correct: i32,
-    fail: i32,
+    pub(crate) total: i32,
+    pub(crate) correct: i32,
+    pub(crate) fail: i32,
 }
