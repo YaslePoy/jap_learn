@@ -1,12 +1,14 @@
-use crate::dictionary::DictionaryElement;
+use crate::dictionary::{split_with_coma, DictionaryElement};
 use crate::quiz::Score;
 use crate::Page::PreviousPage;
 use crate::RootMessage;
 use crate::{NavigatedPage, Page};
-use iced::widget::{button, container, row, text, text_input};
-use iced::{alignment, Fill, Task};
+use iced::border::Radius;
+use iced::widget::container::Style;
+use iced::widget::{button, container, row, space, text, text_input, Row};
+use iced::Background::Color;
+use iced::{alignment, Border, Element, Fill, Task, Theme};
 use rand::prelude::SliceRandom;
-
 #[derive(Debug, Clone)]
 pub struct DictionaryQuizState {
     words: Vec<DictionaryElement>,
@@ -17,6 +19,7 @@ pub struct DictionaryQuizState {
     score: Score,
     is_help: bool,
     reverse: bool,
+    laps: u32
 }
 #[derive(Debug, Clone)]
 pub enum DictionaryQuizMessage {
@@ -45,7 +48,8 @@ impl DictionaryQuizState {
             correct: "".to_string(),
             score: Default::default(),
             is_help: false,
-            reverse: reverse,
+            reverse,
+            laps: 0
         }
     }
 
@@ -61,9 +65,10 @@ impl DictionaryQuizState {
         Task::none()
     }
 
-    pub fn view(&self) -> iced::Element<'_, DictionaryQuizMessage> {
+    pub fn view(&self) -> Element<'_, DictionaryQuizMessage> {
         container(
             iced::widget::column![
+                self.laps(),
                 row![
                     text!("{}", self.view).size(54),
                     text!(
@@ -79,7 +84,7 @@ impl DictionaryQuizState {
                 .spacing(20),
                 text_input("Перевод", &self.answer)
                     .size(28)
-                    .width(150)
+                    .width(250)
                     .on_input(DictionaryQuizMessage::AnswerChanged)
                     .on_submit(DictionaryQuizMessage::SubmitAnswer),
                 row![
@@ -112,12 +117,13 @@ impl DictionaryQuizState {
         if !self.is_help {
             self.score.total += 1;
         }
-        if self.answer == self.correct {
+        if self.answer == self.correct || split_with_coma(self.correct.clone()).contains(&self.answer) {
             if self.is_help == false {
                 self.score.correct += 1;
             }
             self.show_next()
         } else {
+
             self.score.fail += 1;
             self.is_help = true;
         }
@@ -125,7 +131,10 @@ impl DictionaryQuizState {
 
     fn update_set(&mut self) {
         self.current_set.append(&mut self.words.clone());
-        self.current_set.shuffle(&mut rand::rng())
+        self.current_set.shuffle(&mut rand::rng());
+        if self.score.total != 0 {
+            self.laps += 1;
+        }
     }
 
     fn show_next(&mut self) {
@@ -144,5 +153,25 @@ impl DictionaryQuizState {
             self.view = next.key.clone();
             self.correct = next.value.clone();
         }
+    }
+
+    fn laps(&self) -> Element<'_, DictionaryQuizMessage> {
+        let mut col = Row::new();
+        for _ in 0..self.laps {
+            col = col.push(iced::widget::container(space().height(15).width(15)).style(|x: &Theme| {
+                Style{
+                    text_color: None,
+                    background: Some(Color(x.palette().primary)),
+                    border: Border{
+                        color: Default::default(),
+                        width: 0.0,
+                        radius: Radius::new(5),
+                    },
+                    shadow: Default::default(),
+                    snap: false,
+                }
+            }));
+        }
+        col.spacing(10).into()
     }
 }

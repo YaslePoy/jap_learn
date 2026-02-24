@@ -254,7 +254,7 @@ impl DictionaryState {
     fn update_tags(&mut self) {
         let mut tags_list: Vec<String> = vec![];
         for element in &self.dict {
-            tags_list.append(&mut to_tags_list(element.tags.clone()));
+            tags_list.append(&mut split_with_coma(element.tags.clone()));
         }
 
         let current_tags = self
@@ -291,7 +291,7 @@ impl DictionaryState {
         }
 
         for i in 0..self.include_map.len() {
-            let tags = to_tags_list(self.dict[i].tags.clone());
+            let tags = split_with_coma(self.dict[i].tags.clone());
             if tags.iter().any(|t| include_tags.contains(t)) {
                 self.include_map[i] = true;
             }
@@ -299,7 +299,7 @@ impl DictionaryState {
     }
 }
 
-fn to_tags_list(ts: String) -> Vec<String> {
+pub fn split_with_coma(ts: String) -> Vec<String> {
     ts.split(',')
         .map(|ts| ts.to_lowercase().trim().to_string())
         .filter(|t| !t.is_empty())
