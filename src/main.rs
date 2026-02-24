@@ -11,14 +11,14 @@ use crate::selector::*;
 use crate::writing::{WritingMessage, WritingState};
 use crate::Page::{Dictionary, DictionaryQuiz, Quiz, Selector, Writing};
 use iced::widget::text;
-use iced::Task;
+use iced::{Font, Task};
 use iced::Element;
 use crate::dictionary::{DictionaryMessage, DictionaryState};
 use crate::dictionary_test::{DictionaryQuizMessage, DictionaryQuizState};
 
 fn main() -> iced::Result {
     iced::application(ScreenState::boot, ScreenState::update, ScreenState::view)
-        .title("Kana learn app").font(include_bytes!("../noto.ttf")).run()
+        .title("Kana learn app").font(include_bytes!("../noto.ttf")).default_font(Font::with_name("Noto Sans JP")).run()
 }
 
 #[derive(Debug, Clone)]

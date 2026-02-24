@@ -19,7 +19,7 @@ pub struct DictionaryQuizState {
     score: Score,
     is_help: bool,
     reverse: bool,
-    laps: u32
+    laps: u32,
 }
 #[derive(Debug, Clone)]
 pub enum DictionaryQuizMessage {
@@ -27,6 +27,7 @@ pub enum DictionaryQuizMessage {
     Back,
     AnswerChanged(String),
     SubmitAnswer,
+    Appeal,
 }
 
 impl NavigatedPage<DictionaryQuizMessage> for DictionaryQuizState {
@@ -49,7 +50,7 @@ impl DictionaryQuizState {
             score: Default::default(),
             is_help: false,
             reverse,
-            laps: 0
+            laps: 0,
         }
     }
 
@@ -61,6 +62,7 @@ impl DictionaryQuizState {
             DictionaryQuizMessage::Back => {}
             DictionaryQuizMessage::AnswerChanged(c) => self.answer = c.clone(),
             DictionaryQuizMessage::SubmitAnswer => self.submit(),
+            DictionaryQuizMessage::Appeal => self.appeal_answer(),
         }
         Task::none()
     }
@@ -97,7 +99,11 @@ impl DictionaryQuizState {
                         .size(25),
                 ]
                 .spacing(10),
-                button("Закончить").on_press(DictionaryQuizMessage::Back),
+                row![
+                    button("Закончить").on_press(DictionaryQuizMessage::Back),
+                    self.appeal_button()
+                ]
+                .spacing(10),
             ]
             .spacing(10)
             .align_x(alignment::Horizontal::Center),
@@ -117,13 +123,14 @@ impl DictionaryQuizState {
         if !self.is_help {
             self.score.total += 1;
         }
-        if self.answer == self.correct || split_with_coma(self.correct.clone()).contains(&self.answer) {
+        if self.answer == self.correct
+            || split_with_coma(self.correct.clone()).contains(&self.answer)
+        {
             if self.is_help == false {
                 self.score.correct += 1;
             }
             self.show_next()
         } else {
-
             self.score.fail += 1;
             self.is_help = true;
         }
@@ -158,20 +165,36 @@ impl DictionaryQuizState {
     fn laps(&self) -> Element<'_, DictionaryQuizMessage> {
         let mut col = Row::new();
         for _ in 0..self.laps {
-            col = col.push(iced::widget::container(space().height(15).width(15)).style(|x: &Theme| {
-                Style{
+            col = col.push(iced::widget::container(space().height(15).width(15)).style(
+                |x: &Theme| Style {
                     text_color: None,
                     background: Some(Color(x.palette().primary)),
-                    border: Border{
+                    border: Border {
                         color: Default::default(),
                         width: 0.0,
                         radius: Radius::new(5),
                     },
                     shadow: Default::default(),
                     snap: false,
-                }
-            }));
+                },
+            ));
         }
         col.spacing(10).into()
+    }
+
+    fn appeal_button(&self) -> iced::Element<'_, DictionaryQuizMessage> {
+        if self.is_help {
+            return button("Апелляция")
+                .on_press(DictionaryQuizMessage::Appeal)
+                .into();
+        }
+        space().into()
+    }
+
+    fn appeal_answer(&mut self) {
+        self.score.correct += 1;
+        self.score.fail -= 1;
+        self.answer = self.correct.clone();
+        self.show_next()
     }
 }
