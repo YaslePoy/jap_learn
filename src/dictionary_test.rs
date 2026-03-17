@@ -20,10 +20,10 @@ pub struct DictionaryQuizState {
     is_help: bool,
     reverse: bool,
     laps: u32,
+    no_typing: bool,
 }
 #[derive(Debug, Clone)]
 pub enum DictionaryQuizMessage {
-    Next,
     Back,
     AnswerChanged(String),
     SubmitAnswer,
@@ -40,7 +40,11 @@ impl NavigatedPage<DictionaryQuizMessage> for DictionaryQuizState {
 }
 
 impl DictionaryQuizState {
-    pub fn new(words: Vec<DictionaryElement>, reverse: bool) -> DictionaryQuizState {
+    pub fn new(
+        words: Vec<DictionaryElement>,
+        reverse: bool,
+        no_typing: bool,
+    ) -> DictionaryQuizState {
         DictionaryQuizState {
             words,
             current_set: Vec::new(),
@@ -51,14 +55,12 @@ impl DictionaryQuizState {
             is_help: false,
             reverse,
             laps: 0,
+            no_typing,
         }
     }
 
     pub fn update(&mut self, message: DictionaryQuizMessage) -> Task<RootMessage> {
         match message {
-            DictionaryQuizMessage::Next => {
-                self.next();
-            }
             DictionaryQuizMessage::Back => {}
             DictionaryQuizMessage::AnswerChanged(c) => self.answer = c.clone(),
             DictionaryQuizMessage::SubmitAnswer => self.submit(),
@@ -71,7 +73,7 @@ impl DictionaryQuizState {
         container(
             iced::widget::column![
                 self.laps(),
-                row![
+                iced::widget::column![
                     text!("{}", self.view).size(54),
                     text!(
                         "{}",
@@ -80,10 +82,10 @@ impl DictionaryQuizState {
                         } else {
                             String::new()
                         }
-                    ),
+                    ).size(20).align_y(alignment::Vertical::Center),
                 ]
-                .align_y(alignment::Vertical::Center)
-                .spacing(20),
+                .align_x(alignment::Horizontal::Center)
+                .spacing(5),
                 text_input("Перевод", &self.answer)
                     .size(28)
                     .width(250)
@@ -112,14 +114,29 @@ impl DictionaryQuizState {
         .center_x(Fill)
         .into()
     }
-    fn next(&mut self) {}
-
     fn submit(&mut self) {
         if self.view == "---" {
             self.show_next();
             return;
         }
 
+        if self.no_typing {
+            self.no_type_submit();
+        } else {
+            self.default_submit();
+        }
+    }
+
+    fn no_type_submit(&mut self) {
+        if self.is_help {
+            self.is_help = false;
+            self.show_next()
+        }else {
+            self.is_help = true;
+        }
+    }
+
+    fn default_submit(&mut self) {
         if !self.is_help {
             self.score.total += 1;
         }
@@ -182,8 +199,8 @@ impl DictionaryQuizState {
         col.spacing(10).into()
     }
 
-    fn appeal_button(&self) -> iced::Element<'_, DictionaryQuizMessage> {
-        if self.is_help {
+    fn appeal_button(&self) -> Element<'_, DictionaryQuizMessage> {
+        if self.is_help && self.no_typing == false {
             return button("Апелляция")
                 .on_press(DictionaryQuizMessage::Appeal)
                 .into();

@@ -5,16 +5,18 @@ mod selector;
 mod writing;
 mod dictionary;
 mod dictionary_test;
+mod randomizer;
 
 use crate::quiz::*;
 use crate::selector::*;
 use crate::writing::{WritingMessage, WritingState};
-use crate::Page::{Dictionary, DictionaryQuiz, Quiz, Selector, Writing};
+use crate::Page::{Dictionary, DictionaryQuiz, Quiz, Randomizer, Selector, Writing};
 use iced::widget::text;
 use iced::{Font, Task};
 use iced::Element;
 use crate::dictionary::{DictionaryMessage, DictionaryState};
 use crate::dictionary_test::{DictionaryQuizMessage, DictionaryQuizState};
+use crate::randomizer::randomizer::{ RandomizerMessage, RandomizerState};
 
 fn main() -> iced::Result {
     iced::application(ScreenState::boot, ScreenState::update, ScreenState::view)
@@ -28,6 +30,7 @@ pub enum RootMessage {
     Writing(WritingMessage),
     Dictionary(DictionaryMessage),
     DictionaryQuiz(DictionaryQuizMessage),
+    Randomizer(RandomizerMessage)
 }
 
 enum Page {
@@ -36,6 +39,7 @@ enum Page {
     Writing(WritingState),
     Dictionary(DictionaryState),
     DictionaryQuiz(DictionaryQuizState),
+    Randomizer(RandomizerState),
     PreviousPage,
 }
 
@@ -62,12 +66,12 @@ impl ScreenState {
         (ScreenState::default(), Task::none())
     }
     pub fn update(&mut self, message: RootMessage)  -> Task<RootMessage> {
-        state_update!(message, self.stack, Selector, Quiz, Writing, Dictionary, DictionaryQuiz);
+        state_update!(message, self.stack, Selector, Quiz, Writing, Dictionary, DictionaryQuiz, Randomizer);
         Task::none()
     }
 
     pub fn view(&self) -> Element<'_, RootMessage> {
-        view_navigation!(self.stack, Quiz, Selector, Writing, Dictionary, DictionaryQuiz)
+        view_navigation!(self.stack, Quiz, Selector, Writing, Dictionary, DictionaryQuiz, Randomizer)
     }
 }
 

@@ -18,7 +18,9 @@ pub struct DictionaryState {
     dict: Vec<DictionaryElement>,
     include_map: Vec<bool>,
     tag_map: HashMap<String, bool>,
-    reverse: bool
+    reverse: bool,
+    search: String,
+    no_typing: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -52,6 +54,8 @@ pub enum DictionaryMessage {
     Test,
     ResetTags,
     SetReverse(bool),
+    Search(String),
+    SetTyping(bool),
 }
 
 impl NavigatedPage<DictionaryMessage> for DictionaryState {
@@ -62,12 +66,16 @@ impl NavigatedPage<DictionaryMessage> for DictionaryState {
         if let Test = message {
             if self.include_map.iter().any(|x| *x) {
                 let mut words = vec![];
-                for i in 0..self.include_map.len(){
+                for i in 0..self.include_map.len() {
                     if self.include_map[i] {
                         words.push(self.dict[i].clone());
                     }
                 }
-                return Some(Page::DictionaryQuiz(DictionaryQuizState::new(words, self.reverse)))
+                return Some(Page::DictionaryQuiz(DictionaryQuizState::new(
+                    words,
+                    self.reverse,
+                    self.no_typing,
+                )));
             }
         }
         None
@@ -95,9 +103,12 @@ impl DictionaryState {
             dict: list,
             tag_map: HashMap::new(),
             reverse: false,
+            search: "".to_string(),
+            no_typing: false,
         };
 
         result.update_tags();
+
         result
     }
 
@@ -118,7 +129,6 @@ impl DictionaryState {
             }
             DictionaryMessage::Include(i, b) => self.include_map[i] = b,
             DictionaryMessage::IncludeTag(t, v) => {
-                println!("Including tag {}", t);
                 self.tag_map.insert(t, v);
                 self.update_words_include()
             }
@@ -131,9 +141,12 @@ impl DictionaryState {
                 let content = serde_json::to_string_pretty(&self.dict.clone()).unwrap();
                 fs::write(dir, content.clone())
                     .unwrap_or_else(|e| println!("Can't write file: {}", e));
-                println!("{}", content);
-            },
+            }
             DictionaryMessage::SetReverse(v) => self.reverse = v,
+            DictionaryMessage::Search(s) => {
+                self.search = s;
+            }
+            DictionaryMessage::SetTyping(b) => self.no_typing = b,
             _ => {}
         }
 
@@ -141,20 +154,22 @@ impl DictionaryState {
     }
 
     pub fn view(&self) -> iced::Element<'_, DictionaryMessage> {
-        container(row![
-            iced::widget::column![
-                button("Назад").on_press(Back),
-                self.words_list(),
-                row![
-                    button("Добавить слово").on_press(DictionaryMessage::NewWord),
-                    button("Сохранить словарь").on_press(DictionaryMessage::Save),
+        container(
+            row![
+                iced::widget::column![
+                    button("Назад").on_press(Back),
+                    self.words_list(),
+                    row![
+                        button("Добавить слово").on_press(DictionaryMessage::NewWord),
+                        button("Сохранить словарь").on_press(DictionaryMessage::Save),
+                    ]
+                    .spacing(10)
                 ]
-                .spacing(10)
+                .spacing(5),
+                self.filters()
             ]
-            .spacing(5)
-            .padding(10),
-            self.filters()
-        ])
+            .spacing(10),
+        )
         .padding(10)
         .into()
     }
@@ -164,6 +179,15 @@ impl DictionaryState {
 
         let mut i = 0;
         for word in &self.dict {
+            if !self.search.is_empty() {
+                if word.key.contains(&self.search) == false
+                    && word.value.contains(&self.search) == false
+                {
+                    i += 1;
+                    continue;
+                }
+            }
+
             let mut line = Row::new().width(Length::Fill).align_y(Center);
             line = line
                 .push(
@@ -173,17 +197,20 @@ impl DictionaryState {
                 .push(space().width(10));
 
             line = line.push(
-                text_input("Ключ", &word.key).size(20)
+                text_input("Ключ", &word.key)
+                    .size(20)
                     .width(Length::Fill)
                     .on_input(move |string| DictionaryMessage::SetKey(i, string)),
             );
             line = line.push(
-                text_input("Значение", &word.value).size(20)
+                text_input("Значение", &word.value)
+                    .size(20)
                     .width(Length::Fill)
                     .on_input(move |string| DictionaryMessage::SetValue(i, string)),
             );
             line = line.push(
-                text_input("Тэги", &word.tags).size(20)
+                text_input("Тэги", &word.tags)
+                    .size(20)
                     .width(Length::Fill)
                     .on_input(move |string| DictionaryMessage::SetTags(i, string)),
             );
@@ -211,13 +238,21 @@ impl DictionaryState {
 
     fn filters(&self) -> iced::Element<'_, DictionaryMessage> {
         iced::widget::column![
+            text_input("Поиск", &self.search)
+                .on_input(DictionaryMessage::Search)
+                .width(Length::Fill),
             text!("Всего слов: {}", self.dict.len()),
             text!(
                 "Выбрано слов: {}",
                 self.include_map.iter().filter(|i| **i).count()
             ),
             self.tags_selector(),
-            toggler(self.reverse).label("Обратный тест").on_toggle(DictionaryMessage::SetReverse),
+            toggler(self.no_typing)
+                .label("Без набора")
+                .on_toggle(DictionaryMessage::SetTyping),
+            toggler(self.reverse)
+                .label("Обратный тест")
+                .on_toggle(DictionaryMessage::SetReverse),
             button(text!("Тест").center().width(Length::Fill))
                 .on_press(Test)
                 .width(Length::Fill),
@@ -240,7 +275,9 @@ impl DictionaryState {
                     snap: false,
                 }),
         );
-        for tag in &self.tag_map {
+        let mut sorted_tags = self.tag_map.iter().collect::<Vec<_>>();
+        sorted_tags.sort();
+        for tag in sorted_tags {
             col = col.push(
                 checkbox(*tag.1)
                     .label(tag.0)
@@ -283,8 +320,6 @@ impl DictionaryState {
             .map(|(t, _)| t.clone())
             .collect::<Vec<String>>();
 
-        println!("Including include tags: {:?}", include_tags);
-
         if include_tags.is_empty() {
             self.include_map.iter_mut().for_each(|x| *x = false);
             return;
@@ -292,8 +327,10 @@ impl DictionaryState {
 
         for i in 0..self.include_map.len() {
             let tags = split_with_coma(self.dict[i].tags.clone());
-            if tags.iter().any(|t| include_tags.contains(t)) {
+            if tags.iter().all(|t| include_tags.contains(t)) {
                 self.include_map[i] = true;
+            } else {
+                self.include_map[i] = false;
             }
         }
     }

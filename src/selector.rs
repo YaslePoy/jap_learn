@@ -6,6 +6,7 @@ use crate::{NavigatedPage, Page, QuizState, RootMessage};
 use iced::widget::*;
 use iced::{alignment, Element, Task};
 use crate::dictionary::DictionaryState;
+use crate::randomizer::randomizer::RandomizerState;
 
 pub struct SelectorState {
     pub set: KanaSet,
@@ -28,6 +29,7 @@ pub enum SelectorMessage {
     Check(usize, bool),
     ChangeMode(bool),
     ToDictionary,
+    ToRandomize,
 }
 
 impl NavigatedPage<SelectorMessage> for SelectorState {
@@ -44,6 +46,9 @@ impl NavigatedPage<SelectorMessage> for SelectorState {
         }
         if let SelectorMessage::ToDictionary = message {
             return Some(Page::Dictionary(DictionaryState::default()))
+        }
+        if let SelectorMessage::ToRandomize = message {
+            return Some(Page::Randomizer(RandomizerState::default()))
         }
         None
     }
@@ -67,7 +72,8 @@ impl SelectorState {
         container(
             iced::widget::column![
                 row![button("Переключить азбуки").on_press(SelectorMessage::Change),
-                button("Словарь").on_press(SelectorMessage::ToDictionary),].spacing(10),
+                button("Словарь").on_press(SelectorMessage::ToDictionary),
+                button("Рандомайзер").on_press(SelectorMessage::ToRandomize)].spacing(10),
                 self.rows_selector(),
                 toggler(self.is_writing)
                     .label("Режим письма")
