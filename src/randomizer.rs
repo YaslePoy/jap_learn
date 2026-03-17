@@ -60,7 +60,7 @@ pub mod randomizer {
                         button("Назад").on_press(Back),
                         text_editor(&self.text).on_action(RandomizerMessage::Edit
                         ).width(400).height(400).placeholder("Каждый элемент с новой строки"),
-                        button("Начать").on_press(Start),
+                        button("Перемешать").on_press(Start),
                     ]
                     .spacing(5),
             )
