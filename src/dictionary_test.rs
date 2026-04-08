@@ -130,6 +130,7 @@ impl DictionaryQuizState {
     fn no_type_submit(&mut self) {
         if self.is_help {
             self.is_help = false;
+            self.score.total += 1;
             self.show_next()
         }else {
             self.is_help = true;
