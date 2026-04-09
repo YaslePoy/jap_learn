@@ -1,6 +1,6 @@
 use crate::dictionary::DictionaryMessage::Test;
 use crate::dictionary_test::DictionaryQuizState;
-use crate::{NavigatedPage, Page, RootMessage};
+use crate::{AppState, NavigatedPage, Page, RootMessage};
 use iced::alignment::Vertical::Center;
 use iced::widget::button::Style;
 use iced::widget::*;
@@ -8,14 +8,13 @@ use iced::{Border, Color, Length, Shadow, Task};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use std::fs::File;
-use std::io::Read;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 use DictionaryMessage::Back;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct DictionaryState {
-    dict: Vec<DictionaryElement>,
+    state: Arc<Mutex<AppState>>,
     include_map: Vec<bool>,
     tag_map: HashMap<String, bool>,
     reverse: bool,
@@ -28,6 +27,7 @@ pub struct DictionaryElement {
     pub key: String,
     pub value: String,
     pub tags: String,
+    pub additional: HashMap<String, String>,
 }
 
 impl DictionaryElement {
@@ -36,6 +36,7 @@ impl DictionaryElement {
             key: String::new(),
             value: String::new(),
             tags: String::new(),
+            additional: Default::default(),
         }
     }
 }
@@ -66,9 +67,11 @@ impl NavigatedPage<DictionaryMessage> for DictionaryState {
         if let Test = message {
             if self.include_map.iter().any(|x| *x) {
                 let mut words = vec![];
+                let dict = &self.state.lock().unwrap().dictionary;
+
                 for i in 0..self.include_map.len() {
                     if self.include_map[i] {
-                        words.push(self.dict[i].clone());
+                        words.push(dict[i].clone());
                     }
                 }
                 return Some(Page::DictionaryQuiz(DictionaryQuizState::new(
@@ -82,25 +85,12 @@ impl NavigatedPage<DictionaryMessage> for DictionaryState {
     }
 }
 
-impl Default for DictionaryState {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 impl DictionaryState {
-    pub fn new() -> Self {
-        let mut current_dict = "[]".to_string();
-        match File::open(dict_file()) {
-            Ok(mut f) => {
-                current_dict = String::new();
-                f.read_to_string(&mut current_dict).unwrap();
-            }
-            _ => {}
-        }
-        let list: Vec<DictionaryElement> = serde_json::from_str(&current_dict).unwrap();
+    pub fn new(state: Arc<Mutex<AppState>>) -> Self {
+        let len = state.lock().unwrap().dictionary.len();
         let mut result = DictionaryState {
-            include_map: vec![false; list.len()],
-            dict: list,
+            include_map: vec![false; len],
+            state,
             tag_map: HashMap::new(),
             reverse: false,
             search: "".to_string(),
@@ -115,17 +105,29 @@ impl DictionaryState {
     pub fn update(&mut self, message: DictionaryMessage) -> Task<RootMessage> {
         match message {
             DictionaryMessage::NewWord => {
-                self.dict.push(DictionaryElement::new());
+                let dict = &mut self.state.lock().unwrap().dictionary;
+                dict.push(DictionaryElement::new());
                 self.include_map.push(false);
             }
-            DictionaryMessage::SetKey(i, v) => self.dict[i].key = v,
-            DictionaryMessage::SetValue(i, v) => self.dict[i].value = v,
+            DictionaryMessage::SetKey(i, v) => {
+                let dict = &mut self.state.lock().unwrap().dictionary;
+                dict[i].key = v
+            }
+            DictionaryMessage::SetValue(i, v) => {
+                let dict = &mut self.state.lock().unwrap().dictionary;
+                dict[i].value = v
+            },
             DictionaryMessage::SetTags(i, v) => {
-                self.dict[i].tags = v;
+                {
+                    let dict = &mut self.state.lock().unwrap().dictionary;
+                    dict.get_mut(i).unwrap().tags = v;
+                }
+
                 self.update_tags();
             }
             DictionaryMessage::Remove(i) => {
-                self.dict.remove(i);
+                let dict = &mut self.state.lock().unwrap().dictionary;
+                dict.remove(i);
             }
             DictionaryMessage::Include(i, b) => self.include_map[i] = b,
             DictionaryMessage::IncludeTag(t, v) => {
@@ -138,7 +140,9 @@ impl DictionaryState {
             }
             DictionaryMessage::Save => {
                 let dir = dict_file();
-                let content = serde_json::to_string_pretty(&self.dict.clone()).unwrap();
+                let dict = &self.state.lock().unwrap().dictionary;
+
+                let content = serde_json::to_string_pretty(&dict.clone()).unwrap();
                 fs::write(dir, content.clone())
                     .unwrap_or_else(|e| println!("Can't write file: {}", e));
             }
@@ -178,7 +182,9 @@ impl DictionaryState {
         let mut col = Column::new().width(Length::Fill);
 
         let mut i = 0;
-        for word in &self.dict {
+        let dict = &self.state.lock().unwrap().dictionary;
+
+        for word in dict {
             if !self.search.is_empty() {
                 if word.key.contains(&self.search) == false
                     && word.value.contains(&self.search) == false
@@ -237,11 +243,13 @@ impl DictionaryState {
     }
 
     fn filters(&self) -> iced::Element<'_, DictionaryMessage> {
+        let dict = &self.state.lock().unwrap().dictionary;
+
         iced::widget::column![
             text_input("Поиск", &self.search)
                 .on_input(DictionaryMessage::Search)
                 .width(Length::Fill),
-            text!("Всего слов: {}", self.dict.len()),
+            text!("Всего слов: {}", dict.len()),
             text!(
                 "Выбрано слов: {}",
                 self.include_map.iter().filter(|i| **i).count()
@@ -290,7 +298,9 @@ impl DictionaryState {
 
     fn update_tags(&mut self) {
         let mut tags_list: Vec<String> = vec![];
-        for element in &self.dict {
+        let dict = &self.state.lock().unwrap().dictionary;
+
+        for element in dict {
             tags_list.append(&mut split_with_coma(element.tags.clone()));
         }
 
@@ -325,8 +335,10 @@ impl DictionaryState {
             return;
         }
 
+        let dict = &self.state.lock().unwrap().dictionary;
+
         for i in 0..self.include_map.len() {
-            let tags = split_with_coma(self.dict[i].tags.clone());
+            let tags = split_with_coma(dict[i].tags.clone());
             if tags.iter().all(|t| include_tags.contains(t)) {
                 self.include_map[i] = true;
             } else {
@@ -343,7 +355,7 @@ pub fn split_with_coma(ts: String) -> Vec<String> {
         .collect::<Vec<String>>()
 }
 
-fn dict_file() -> PathBuf {
+pub fn dict_file() -> PathBuf {
     let mut dir = dirs::data_dir().unwrap();
     dir.push("jap_learn");
     if !dir.exists() {

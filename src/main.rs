@@ -1,26 +1,38 @@
 #![windows_subsystem = "windows"]
-mod lang;
-mod quiz;
-mod selector;
-mod writing;
 mod dictionary;
 mod dictionary_test;
+mod lang;
+mod quiz;
 mod randomizer;
+mod repetition;
+mod repetitions;
+mod selector;
+mod writing;
 
+use std::fs::File;
+use std::io::Read;
+use crate::dictionary::{DictionaryElement, DictionaryMessage, DictionaryState};
+use crate::dictionary_test::{DictionaryQuizMessage, DictionaryQuizState};
 use crate::quiz::*;
+use crate::randomizer::randomizer::{RandomizerMessage, RandomizerState};
+use crate::repetition::{RepetitionMessage, RepetitionState};
+use crate::repetitions::{RepetitionsMessage, RepetitionsState};
 use crate::selector::*;
 use crate::writing::{WritingMessage, WritingState};
-use crate::Page::{Dictionary, DictionaryQuiz, Quiz, Randomizer, Selector, Writing};
+use crate::Page::{
+    Dictionary, DictionaryQuiz, Quiz, Randomizer, Repetition, Repetitions, Selector, Writing,
+};
 use iced::widget::text;
-use iced::{Font, Task};
 use iced::Element;
-use crate::dictionary::{DictionaryMessage, DictionaryState};
-use crate::dictionary_test::{DictionaryQuizMessage, DictionaryQuizState};
-use crate::randomizer::randomizer::{ RandomizerMessage, RandomizerState};
+use iced::{Font, Task};
+use std::sync::{Arc, Mutex};
 
 fn main() -> iced::Result {
     iced::application(ScreenState::boot, ScreenState::update, ScreenState::view)
-        .title("Kana learn app").font(include_bytes!("../noto.ttf")).default_font(Font::with_name("Noto Sans JP")).run()
+        .title("Kana learn app")
+        .font(include_bytes!("../noto.ttf"))
+        .default_font(Font::with_name("Noto Sans JP"))
+        .run()
 }
 
 #[derive(Debug, Clone)]
@@ -30,7 +42,9 @@ pub enum RootMessage {
     Writing(WritingMessage),
     Dictionary(DictionaryMessage),
     DictionaryQuiz(DictionaryQuizMessage),
-    Randomizer(RandomizerMessage)
+    Randomizer(RandomizerMessage),
+    Repetitions(RepetitionsMessage),
+    Repetition(RepetitionMessage),
 }
 
 enum Page {
@@ -40,38 +54,70 @@ enum Page {
     Dictionary(DictionaryState),
     DictionaryQuiz(DictionaryQuizState),
     Randomizer(RandomizerState),
+    Repetitions(RepetitionsState),
+    Repetition(RepetitionState),
     PreviousPage,
-}
-
-impl Default for Page {
-    fn default() -> Self {
-        Selector(SelectorState::default())
-    }
 }
 
 pub struct ScreenState {
     stack: Vec<Page>,
 }
 
+pub struct AppState {
+    pub dictionary: Vec<DictionaryElement>,
+}
+
 impl Default for ScreenState {
     fn default() -> Self {
+        let mut current_dict = "[]".to_string();
+        match File::open(dictionary::dict_file()) {
+            Ok(mut f) => {
+                current_dict = String::new();
+                f.read_to_string(&mut current_dict).unwrap();
+            }
+            _ => {}
+        }
+        
+        let list: Vec<DictionaryElement> = serde_json::from_str(&current_dict).unwrap();
+        let state = Arc::new(Mutex::new(AppState { dictionary: list }));
         ScreenState {
-            stack: vec![Page::default()],
+            stack: vec![Selector(SelectorState::new(state.clone()))],
         }
     }
 }
 
 impl ScreenState {
-    pub fn boot() -> (ScreenState, Task<RootMessage>){
+    pub fn boot() -> (ScreenState, Task<RootMessage>) {
         (ScreenState::default(), Task::none())
     }
-    pub fn update(&mut self, message: RootMessage)  -> Task<RootMessage> {
-        state_update!(message, self.stack, Selector, Quiz, Writing, Dictionary, DictionaryQuiz, Randomizer);
+    pub fn update(&mut self, message: RootMessage) -> Task<RootMessage> {
+        state_update!(
+            message,
+            self.stack,
+            Selector,
+            Quiz,
+            Writing,
+            Dictionary,
+            DictionaryQuiz,
+            Randomizer,
+            Repetitions,
+            Repetition
+        );
         Task::none()
     }
 
     pub fn view(&self) -> Element<'_, RootMessage> {
-        view_navigation!(self.stack, Quiz, Selector, Writing, Dictionary, DictionaryQuiz, Randomizer)
+        view_navigation!(
+            self.stack,
+            Quiz,
+            Selector,
+            Writing,
+            Dictionary,
+            DictionaryQuiz,
+            Randomizer,
+            Repetitions,
+            Repetition
+        )
     }
 }
 

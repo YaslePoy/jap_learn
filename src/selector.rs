@@ -1,25 +1,19 @@
+use std::sync::{Arc, Mutex};
+use crate::dictionary::DictionaryState;
 use crate::lang::{KanaSet, KanaType};
+use crate::randomizer::randomizer::RandomizerState;
+use crate::repetitions::RepetitionsState;
 use crate::selector::SelectorMessage::ChangeMode;
 use crate::writing::WritingState;
 use crate::Page::{Quiz, Writing};
-use crate::{NavigatedPage, Page, QuizState, RootMessage};
+use crate::{AppState, NavigatedPage, Page, QuizState, RootMessage};
 use iced::widget::*;
 use iced::{alignment, Element, Task};
-use crate::dictionary::DictionaryState;
-use crate::randomizer::randomizer::RandomizerState;
 
 pub struct SelectorState {
     pub set: KanaSet,
     is_writing: bool,
-}
-
-impl Default for SelectorState {
-    fn default() -> Self {
-        Self {
-            set: KanaSet::hiragana(),
-            is_writing: false,
-        }
-    }
+    state: Arc<Mutex<AppState>>
 }
 
 #[derive(Debug, Clone)]
@@ -30,6 +24,7 @@ pub enum SelectorMessage {
     ChangeMode(bool),
     ToDictionary,
     ToRandomize,
+    ToRepetitions,
 }
 
 impl NavigatedPage<SelectorMessage> for SelectorState {
@@ -45,17 +40,27 @@ impl NavigatedPage<SelectorMessage> for SelectorState {
             };
         }
         if let SelectorMessage::ToDictionary = message {
-            return Some(Page::Dictionary(DictionaryState::default()))
+            return Some(Page::Dictionary(DictionaryState::new(self.state.clone())));
         }
         if let SelectorMessage::ToRandomize = message {
-            return Some(Page::Randomizer(RandomizerState::default()))
+            return Some(Page::Randomizer(RandomizerState::default()));
+        }
+        if let SelectorMessage::ToRepetitions = message {
+            return Some(Page::Repetitions(RepetitionsState::new(self.state.clone())));
         }
         None
     }
 }
 
 impl SelectorState {
-    pub fn update(&mut self, message: SelectorMessage)  -> Task<RootMessage> {
+    pub fn new(state: Arc<Mutex<AppState>>) -> Self {
+        Self{
+            set: Default::default(),
+            is_writing: false,
+            state,
+        }
+    }
+    pub fn update(&mut self, message: SelectorMessage) -> Task<RootMessage> {
         match message {
             SelectorMessage::Change => match self.set.chars_type {
                 KanaType::Katakana => self.set = KanaSet::hiragana(),
@@ -71,9 +76,13 @@ impl SelectorState {
     pub fn view(&self) -> Element<'_, SelectorMessage> {
         container(
             iced::widget::column![
-                row![button("Переключить азбуки").on_press(SelectorMessage::Change),
-                button("Словарь").on_press(SelectorMessage::ToDictionary),
-                button("Рандомайзер").on_press(SelectorMessage::ToRandomize)].spacing(10),
+                row![
+                    button("Переключить азбуки").on_press(SelectorMessage::Change),
+                    button("Словарь").on_press(SelectorMessage::ToDictionary),
+                    button("Рандомайзер").on_press(SelectorMessage::ToRandomize),
+                    button("Повторение").on_press(SelectorMessage::ToRepetitions)
+                ]
+                .spacing(10),
                 self.rows_selector(),
                 toggler(self.is_writing)
                     .label("Режим письма")
@@ -82,7 +91,7 @@ impl SelectorState {
             ]
             .spacing(10),
         )
-        .padding(20)
+        .padding(10)
         .into()
     }
 
