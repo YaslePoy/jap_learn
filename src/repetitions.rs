@@ -1,7 +1,9 @@
-use crate::dictionary::DictionaryElement;
-use crate::Page::PreviousPage;
+use crate::data_provider::card_sets::{delete_set, update_card_set};
+use crate::lang::DictionaryElement;
+use crate::repetition::RepetitionState;
+use crate::Page::{PreviousPage, Repetition};
 use crate::{AppState, NavigatedPage, Page, RootMessage};
-use iced::widget::button::{Catalog, Style};
+pub use iced::widget::button::{Catalog, Style};
 use iced::widget::{button, column, container, row, scrollable, space, text, text_input, Column};
 use iced::Background::Color;
 use iced::{Border, Center, Element, Fill, Left, Length, Shadow, Task, Theme};
@@ -10,7 +12,6 @@ use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
 pub struct RepetitionsState {
-    sets: Vec<CardSet>,
     selected_set: Option<usize>,
     correct_filters: Vec<bool>,
     pub state: Arc<Mutex<AppState>>,
@@ -20,6 +21,10 @@ impl NavigatedPage<RepetitionsMessage> for RepetitionsState {
     fn navigate(&self, message: &RepetitionsMessage) -> Option<Page> {
         if let RepetitionsMessage::Back = message {
             Some(PreviousPage)
+        }
+        else if let RepetitionsMessage::GoToRepetition = message {
+            let clone = self.state.clone();
+            Some(Repetition(RepetitionState::new(self.state.lock().unwrap().card_sets[self.selected_set.unwrap()].clone(), clone) ))
         } else {
             None
         }
@@ -28,10 +33,10 @@ impl NavigatedPage<RepetitionsMessage> for RepetitionsState {
 
 impl RepetitionsState {
     pub(crate) fn new(state: Arc<Mutex<AppState>>) -> RepetitionsState {
+        let count = state.lock().unwrap().card_sets.len();
         RepetitionsState {
-            sets: Vec::new(),
             selected_set: None,
-            correct_filters: vec![],
+            correct_filters: vec![true; count],
             state,
         }
     }
@@ -39,52 +44,54 @@ impl RepetitionsState {
 
 impl RepetitionsState {
     pub fn update(&mut self, message: RepetitionsMessage) -> Task<RootMessage> {
+        let mut state = self.state.lock().unwrap();
         match message {
             RepetitionsMessage::Next => {}
             RepetitionsMessage::Back => {}
             RepetitionsMessage::GoToRepetition => {}
             RepetitionsMessage::CreateSet => {
-                self.sets.push(CardSet::with_name(format!(
-                    "Card set #{}",
-                    self.sets.len() + 1
-                )));
+                let index = state.card_sets.len() + 1;
+                state
+                    .card_sets
+                    .push(CardSetSettings::with_name(format!("Card set #{}", index)));
                 self.correct_filters.push(true);
             }
             RepetitionsMessage::DeleteSet => {
-                self.sets.remove(self.selected_set.unwrap());
+                let set = state.card_sets.remove(self.selected_set.unwrap());
                 self.correct_filters.remove(self.selected_set.unwrap());
                 self.selected_set = None;
+                delete_set(&set, &state.connection);
             }
             RepetitionsMessage::SelectSet(index) => {
                 self.selected_set = Some(index);
             }
             RepetitionsMessage::SetName(new) => {
-                self.sets[self.selected_set.unwrap()].name = new;
+                state.card_sets[self.selected_set.unwrap()].name = new;
             }
             RepetitionsMessage::Save => {
-                for i in 0..self.sets.len() {
-                    self.correct_filters[i] = self.sets[i].check_filter();
+                for i in 0..state.card_sets.len() {
+                    self.correct_filters[i] = state.card_sets[i].check_filter();
                 }
 
-                if self.correct_filters.iter().all(|x| *x) {
-                    println!("Saving");
-                } else {
-                    println!("Some errors");
-                }
+                let word = &mut state.card_sets[self.selected_set.unwrap()].clone();
+
+                update_card_set(word, &state.connection);
+
+                state.card_sets[self.selected_set.unwrap()] = word.clone();
             }
             RepetitionsMessage::SetForward(new) => {
-                self.sets[self.selected_set.unwrap()].forward = new;
+                state.card_sets[self.selected_set.unwrap()].forward = new;
             }
             RepetitionsMessage::SetBackward(new) => {
-                self.sets[self.selected_set.unwrap()].backward = new;
+                state.card_sets[self.selected_set.unwrap()].backward = new;
             }
             RepetitionsMessage::SetFilter(new) => {
-                self.sets[self.selected_set.unwrap()].filter = new;
+                state.card_sets[self.selected_set.unwrap()].filter = new;
             }
             RepetitionsMessage::TryFilter => {
-                let set = &mut self.sets[self.selected_set.unwrap()];
-                let count = set.get_word_list(&self.state.lock().unwrap()).len();
-                set.count = Some(count);
+                let set = state.card_sets.get(self.selected_set.unwrap()).unwrap();
+                let count = set.get_word_list(&state).len();
+                state.card_sets[self.selected_set.unwrap()].count = Some(count);
             }
         }
         Task::none()
@@ -100,9 +107,6 @@ impl RepetitionsState {
                         button("Добавить")
                             .width(Fill)
                             .on_press(RepetitionsMessage::CreateSet),
-                        button("Сохранить")
-                            .width(Fill)
-                            .on_press(RepetitionsMessage::Save),
                     ]
                     .spacing(10)
                     .width(Length::FillPortion(1)),
@@ -115,12 +119,12 @@ impl RepetitionsState {
                 .width(Fill)
                 .height(Fill)
             ]
-                .align_x(Left)
-                .width(Fill),
+            .align_x(Left)
+            .width(Fill),
         )
-            .center_x(Fill)
-            .padding(10)
-            .into()
+        .center_x(Fill)
+        .padding(10)
+        .into()
     }
 
     fn launch_button(&self) -> Element<'_, RepetitionsMessage> {
@@ -135,43 +139,48 @@ impl RepetitionsState {
 
     fn selected_set_view(&self) -> Element<'_, RepetitionsMessage> {
         if let Some(index) = self.selected_set {
+            let sets = &self.state.lock().unwrap().card_sets;
+
             return column![
                 scrollable(
                     column![
-                        text_input("Название набора", &self.sets[index].name)
+                        text_input("Название набора", &sets[index].name)
                             .on_input(RepetitionsMessage::SetName),
-                        text_input("Передняя сторона", &self.sets[index].forward)
+                        text_input("Передняя сторона", &sets[index].forward)
                             .on_input(RepetitionsMessage::SetForward),
-                        text_input("Задняя сторона", &self.sets[index].backward)
+                        text_input("Задняя сторона", &sets[index].backward)
                             .on_input(RepetitionsMessage::SetBackward),
                         text!("Фильтр"),
-                        text_input("", &self.sets[index].filter)
-                            .on_input(RepetitionsMessage::SetFilter),
+                        text_input("", &sets[index].filter).on_input(RepetitionsMessage::SetFilter),
                         button("Проверить фильтр").on_press(RepetitionsMessage::TryFilter),
-                        self.count_view()
+                        self.count_view(&sets[index])
                     ]
                     .spacing(10)
                 )
                 .height(Fill),
-                button("Удалить")
-                    .style(|x: &Theme, _status| Style {
-                        background: Some(Color(x.palette().danger)),
-                        text_color: x.palette().text,
-                        border: Default::default(),
-                        shadow: Default::default(),
-                        snap: false,
-                    })
-                    .on_press(RepetitionsMessage::DeleteSet),
+                row![
+                    button("Сохранить").on_press(RepetitionsMessage::Save),
+                    button("Удалить")
+                        .style(|x: &Theme, _status| Style {
+                            background: Some(Color(x.palette().danger)),
+                            text_color: x.palette().text,
+                            border: Border::default().rounded(2),
+                            shadow: Default::default(),
+                            snap: false,
+                        })
+                        .on_press(RepetitionsMessage::DeleteSet)
+                ]
+                .spacing(10),
             ]
-                .spacing(10)
-                .width(Length::FillPortion(2))
-                .into();
+            .spacing(10)
+            .width(Length::FillPortion(2))
+            .into();
         }
         space().width(Length::FillPortion(2)).into()
     }
 
-    fn count_view(&self) -> Element<'_, RepetitionsMessage> {
-        if let Some(count) = self.sets[self.selected_set.unwrap()].count {
+    fn count_view(&self, set: &CardSetSettings) -> Element<'_, RepetitionsMessage> {
+        if let Some(count) = set.count {
             return text!("Колличество слов: {}", count).into();
         }
         space().into()
@@ -180,7 +189,8 @@ impl RepetitionsState {
     fn sets_list(&self) -> Column<'_, RepetitionsMessage> {
         let mut column = Column::new();
         let mut i = 0;
-        for set in &self.sets {
+        let sets = &self.state.lock().unwrap().card_sets;
+        for set in sets {
             column = column.push(
                 button(text!("{}", set.name.clone()))
                     .on_press_with(move || RepetitionsMessage::SelectSet(i.clone()))
@@ -219,17 +229,19 @@ pub enum RepetitionsMessage {
 }
 
 #[derive(Debug, Clone)]
-pub struct CardSet {
-    name: String,
-    forward: String,
-    backward: String,
-    filter: String,
-    count: Option<usize>,
+pub struct CardSetSettings {
+    pub id: u32,
+    pub name: String,
+    pub forward: String,
+    pub backward: String,
+    pub filter: String,
+    pub count: Option<usize>,
 }
 
-impl CardSet {
-    fn with_name(name: String) -> CardSet {
-        CardSet {
+impl CardSetSettings {
+    fn with_name(name: String) -> CardSetSettings {
+        CardSetSettings {
+            id: 0,
             name,
             forward: "".to_string(),
             backward: "".to_string(),
@@ -260,7 +272,8 @@ impl CardSet {
                 more.insert(iced.0.clone().into(), iced.1.clone().into());
             }
             let mut scope = Scope::new();
-            scope.push_constant("key", word.key.clone())
+            scope
+                .push_constant("key", word.key.clone())
                 .push_constant("value", word.value.clone())
                 .push_constant("tags", word.tags.clone())
                 .push_constant("more", more);

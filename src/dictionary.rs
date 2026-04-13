@@ -1,11 +1,12 @@
+use crate::data_provider::words::{delete_word, update_word};
 use crate::dictionary::DictionaryMessage::Test;
 use crate::dictionary_test::DictionaryQuizState;
+use crate::lang::DictionaryElement;
 use crate::{AppState, NavigatedPage, Page, RootMessage};
 use iced::alignment::Vertical::Center;
 use iced::widget::button::Style;
 use iced::widget::*;
 use iced::{Border, Color, Length, Shadow, Task};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
@@ -22,31 +23,13 @@ pub struct DictionaryState {
     no_typing: bool,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DictionaryElement {
-    pub key: String,
-    pub value: String,
-    pub tags: String,
-    pub additional: HashMap<String, String>,
-}
-
-impl DictionaryElement {
-    fn new() -> Self {
-        Self {
-            key: String::new(),
-            value: String::new(),
-            tags: String::new(),
-            additional: Default::default(),
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub enum DictionaryMessage {
     Back,
     SetTags(usize, String),
     SetKey(usize, String),
     SetValue(usize, String),
+    SubmitWord(usize),
     Remove(usize),
     NewWord,
     Include(usize, bool),
@@ -109,6 +92,7 @@ impl DictionaryState {
                 dict.push(DictionaryElement::new());
                 self.include_map.push(false);
             }
+
             DictionaryMessage::SetKey(i, v) => {
                 let dict = &mut self.state.lock().unwrap().dictionary;
                 dict[i].key = v
@@ -116,7 +100,7 @@ impl DictionaryState {
             DictionaryMessage::SetValue(i, v) => {
                 let dict = &mut self.state.lock().unwrap().dictionary;
                 dict[i].value = v
-            },
+            }
             DictionaryMessage::SetTags(i, v) => {
                 {
                     let dict = &mut self.state.lock().unwrap().dictionary;
@@ -125,32 +109,45 @@ impl DictionaryState {
 
                 self.update_tags();
             }
+
             DictionaryMessage::Remove(i) => {
-                let dict = &mut self.state.lock().unwrap().dictionary;
-                dict.remove(i);
+                let state = &mut self.state.lock().unwrap();
+                let dict = &mut state.dictionary;
+                let word = dict.remove(i);
+                delete_word(&word, &state.connection)
             }
             DictionaryMessage::Include(i, b) => self.include_map[i] = b,
             DictionaryMessage::IncludeTag(t, v) => {
                 self.tag_map.insert(t, v);
                 self.update_words_include()
             }
+
             DictionaryMessage::ResetTags => {
                 self.tag_map.iter_mut().for_each(|(_, v)| *v = false);
                 self.include_map.iter_mut().for_each(|x| *x = false)
             }
+
             DictionaryMessage::Save => {
-                let dir = dict_file();
+            /*    let dir = dict_file();
                 let dict = &self.state.lock().unwrap().dictionary;
 
                 let content = serde_json::to_string_pretty(&dict.clone()).unwrap();
                 fs::write(dir, content.clone())
-                    .unwrap_or_else(|e| println!("Can't write file: {}", e));
+                    .unwrap_or_else(|e| println!("Can't write file: {}", e));*/
             }
             DictionaryMessage::SetReverse(v) => self.reverse = v,
             DictionaryMessage::Search(s) => {
                 self.search = s;
             }
             DictionaryMessage::SetTyping(b) => self.no_typing = b,
+            DictionaryMessage::SubmitWord(i) => {
+                let state = &mut self.state.lock().unwrap();
+                let connection = &state.connection;
+                let word = &mut state.dictionary.get(i).unwrap().clone();
+
+                update_word(word, &connection);
+                state.dictionary[i] = word.clone();
+            }
             _ => {}
         }
 
@@ -206,19 +203,22 @@ impl DictionaryState {
                 text_input("Ключ", &word.key)
                     .size(20)
                     .width(Length::Fill)
-                    .on_input(move |string| DictionaryMessage::SetKey(i, string)),
+                    .on_input(move |string| DictionaryMessage::SetKey(i, string))
+                    .on_submit(DictionaryMessage::SubmitWord(i)),
             );
             line = line.push(
                 text_input("Значение", &word.value)
                     .size(20)
                     .width(Length::Fill)
-                    .on_input(move |string| DictionaryMessage::SetValue(i, string)),
+                    .on_input(move |string| DictionaryMessage::SetValue(i, string))
+                    .on_submit(DictionaryMessage::SubmitWord(i)),
             );
             line = line.push(
                 text_input("Тэги", &word.tags)
                     .size(20)
                     .width(Length::Fill)
-                    .on_input(move |string| DictionaryMessage::SetTags(i, string)),
+                    .on_input(move |string| DictionaryMessage::SetTags(i, string))
+                    .on_submit(DictionaryMessage::SubmitWord(i)),
             );
 
             line = line
@@ -362,5 +362,15 @@ pub fn dict_file() -> PathBuf {
         fs::create_dir(dir.clone()).unwrap();
     }
     dir.push("dict.json");
+    dir
+}
+
+pub fn app_data_dir() -> PathBuf {
+    let mut dir = dirs::data_dir().unwrap();
+    dir.push("jap_learn");
+    if !dir.exists() {
+        fs::create_dir(dir.clone()).unwrap();
+    }
+
     dir
 }

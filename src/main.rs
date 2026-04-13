@@ -8,15 +8,16 @@ mod repetition;
 mod repetitions;
 mod selector;
 mod writing;
-
-use std::fs::File;
-use std::io::Read;
-use crate::dictionary::{DictionaryElement, DictionaryMessage, DictionaryState};
+mod data_provider;
+use crate::data_provider::card_sets::load_sets;
+use crate::data_provider::words::{create_db, load_words};
+use crate::dictionary::{app_data_dir, DictionaryMessage, DictionaryState};
 use crate::dictionary_test::{DictionaryQuizMessage, DictionaryQuizState};
+use crate::lang::DictionaryElement;
 use crate::quiz::*;
 use crate::randomizer::randomizer::{RandomizerMessage, RandomizerState};
 use crate::repetition::{RepetitionMessage, RepetitionState};
-use crate::repetitions::{RepetitionsMessage, RepetitionsState};
+use crate::repetitions::{CardSetSettings, RepetitionsMessage, RepetitionsState};
 use crate::selector::*;
 use crate::writing::{WritingMessage, WritingState};
 use crate::Page::{
@@ -25,6 +26,7 @@ use crate::Page::{
 use iced::widget::text;
 use iced::Element;
 use iced::{Font, Task};
+use rusqlite::Connection;
 use std::sync::{Arc, Mutex};
 
 fn main() -> iced::Result {
@@ -32,7 +34,8 @@ fn main() -> iced::Result {
         .title("Kana learn app")
         .font(include_bytes!("../noto.ttf"))
         .default_font(Font::with_name("Noto Sans JP"))
-        .run()
+        .
+            run()
 }
 
 #[derive(Debug, Clone)]
@@ -65,21 +68,19 @@ pub struct ScreenState {
 
 pub struct AppState {
     pub dictionary: Vec<DictionaryElement>,
+    pub card_sets: Vec<CardSetSettings>,
+    pub connection: Connection
 }
 
 impl Default for ScreenState {
     fn default() -> Self {
-        let mut current_dict = "[]".to_string();
-        match File::open(dictionary::dict_file()) {
-            Ok(mut f) => {
-                current_dict = String::new();
-                f.read_to_string(&mut current_dict).unwrap();
-            }
-            _ => {}
-        }
-        
-        let list: Vec<DictionaryElement> = serde_json::from_str(&current_dict).unwrap();
-        let state = Arc::new(Mutex::new(AppState { dictionary: list }));
+        let path = app_data_dir();
+        let db_file = path.join("data.db");
+        let connection = Connection::open(db_file).unwrap();
+        let list: Vec<DictionaryElement> = load_words(&connection);
+        let sets: Vec<CardSetSettings> = load_sets(&connection);
+
+        let state = Arc::new(Mutex::new(AppState { dictionary: list, card_sets: sets, connection }));
         ScreenState {
             stack: vec![Selector(SelectorState::new(state.clone()))],
         }
@@ -88,6 +89,7 @@ impl Default for ScreenState {
 
 impl ScreenState {
     pub fn boot() -> (ScreenState, Task<RootMessage>) {
+        create_db();
         (ScreenState::default(), Task::none())
     }
     pub fn update(&mut self, message: RootMessage) -> Task<RootMessage> {

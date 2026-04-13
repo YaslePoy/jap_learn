@@ -1,4 +1,4 @@
-use crate::dictionary::{split_with_coma, DictionaryElement};
+use crate::dictionary::{split_with_coma};
 use crate::quiz::Score;
 use crate::Page::PreviousPage;
 use crate::RootMessage;
@@ -9,6 +9,8 @@ use iced::widget::{button, container, row, space, text, text_input, Row};
 use iced::Background::Color;
 use iced::{alignment, Border, Element, Fill, Task, Theme};
 use rand::prelude::SliceRandom;
+use crate::lang::DictionaryElement;
+
 #[derive(Debug, Clone)]
 pub struct DictionaryQuizState {
     words: Vec<DictionaryElement>,

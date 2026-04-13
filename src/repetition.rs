@@ -1,16 +1,15 @@
+use std::sync::{Arc, Mutex};
 use crate::Page::PreviousPage;
-use crate::{NavigatedPage, Page, RootMessage};
+use crate::{AppState, NavigatedPage, Page, RootMessage};
 use iced::widget::{button, container};
 use iced::{Element, Fill, Left, Task};
+use crate::lang::CardSet;
+use crate::repetitions::CardSetSettings;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct RepetitionState {
-}
-
-impl Default for RepetitionState {
-    fn default() -> Self {
-        RepetitionState::new()
-    }
+    pub set: CardSetSettings,
+    pub state: Arc<Mutex<AppState>>,
 }
 
 impl NavigatedPage<RepetitionMessage> for RepetitionState {
@@ -24,9 +23,10 @@ impl NavigatedPage<RepetitionMessage> for RepetitionState {
 }
 
 impl RepetitionState {
-    pub(crate) fn new() -> RepetitionState {
+    pub(crate) fn new(set: CardSetSettings, state: Arc<Mutex<AppState>>) -> RepetitionState {
         RepetitionState {
-
+            set,
+            state
         }
     }
 }

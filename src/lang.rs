@@ -1,3 +1,13 @@
+use crate::repetitions::CardSetSettings;
+use crate::AppState;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use crate::data_provider::card_stats::load_stats_of_set;
+
+const MAX_SCORE: u8 = 25_u8;
+const FADE_PER_DAY: f32 = 0.95;
 #[derive(Clone, Debug)]
 pub struct KanaSet {
     name: String,
@@ -177,7 +187,7 @@ impl KanaSet {
         }
     }
 
-/*    pub fn next(&mut self) -> (String, String) {
+    /*    pub fn next(&mut self) -> (String, String) {
         let current_set = self.list();
 
         let mut rand = rand::rng();
@@ -208,5 +218,96 @@ impl Default for KanaSet {
 impl PartialEq<Self> for KanaSet {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DictionaryElement {
+    pub id: u32,
+    pub key: String,
+    pub value: String,
+    pub tags: String,
+    pub additional: HashMap<String, String>,
+}
+
+impl DictionaryElement {
+    pub fn new() -> Self {
+        Self {
+            id: 0,
+            key: String::new(),
+            value: String::new(),
+            tags: String::new(),
+            additional: Default::default(),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct CardStatistics {
+    pub id: u32,
+    pub word_id: u32,
+    pub last_open: DateTime<Utc>,
+    pub score: u8,
+}
+
+impl CardStatistics {
+    pub fn open(&mut self, status: WordOpenMode) {
+        self.last_open = Utc::now();
+        match status {
+            WordOpenMode::Easy => {
+                self.score += 5;
+            }
+            WordOpenMode::Ok => {
+                self.score += 3;
+            }
+            WordOpenMode::Hard => {
+                self.score -= 1;
+            }
+            WordOpenMode::None => {
+                self.score /= 2;
+            }
+        }
+
+        if self.score < 1 {
+            self.score = 1
+        } else if self.score > MAX_SCORE {
+            self.score = MAX_SCORE
+        }
+    }
+
+    pub fn calculated_score(&self) -> f32 {
+        let time = Utc::now() - self.last_open;
+        let days = time.num_days();
+        let multiplier = FADE_PER_DAY.powi(days as i32);
+        self.score as f32 * multiplier
+    }
+}
+
+pub enum WordOpenMode {
+    Easy,
+    Ok,
+    Hard,
+    None,
+}
+
+#[derive(Clone)]
+pub struct CardSet {
+    set: Vec<CardStatistics>,
+    last_weights: Vec<f32>,
+}
+
+impl CardSet {
+    pub fn new(settings: CardSetSettings, state: Arc<Mutex<AppState>>) -> Self {
+        let state_locked = state.lock().unwrap();
+
+        let current_set = load_stats_of_set(&settings, &state_locked.connection);
+        let last_list = settings.get_word_list(&state_locked);
+
+        let weights = current_set.iter().map(|x| x.calculated_score()).collect();
+
+        Self {
+            set: current_set,
+            last_weights: weights,
+        }
     }
 }
