@@ -24,7 +24,11 @@ impl NavigatedPage<RepetitionsMessage> for RepetitionsState {
         }
         else if let RepetitionsMessage::GoToRepetition = message {
             let clone = self.state.clone();
-            Some(Repetition(RepetitionState::new(self.state.lock().unwrap().card_sets[self.selected_set.unwrap()].clone(), clone) ))
+            let card_set;
+            {
+                card_set = self.state.lock().unwrap().card_sets[self.selected_set.unwrap()].clone();
+            }
+            Some(Repetition(RepetitionState::new(card_set, clone) ))
         } else {
             None
         }
@@ -212,6 +216,7 @@ impl RepetitionsState {
         column
     }
 }
+
 #[derive(Debug, Clone)]
 pub enum RepetitionsMessage {
     Next,

@@ -1,10 +1,14 @@
+use crate::data_provider::card_stats::{add_stat, load_stats_of_set, update_stat_score};
 use crate::repetitions::CardSetSettings;
 use crate::AppState;
 use chrono::{DateTime, Utc};
+use rand::distr::weighted::WeightedIndex;
+use rand::distr::Distribution;
+use rand::rng;
+use rand::rngs::ThreadRng;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use crate::data_provider::card_stats::load_stats_of_set;
 
 const MAX_SCORE: u8 = 25_u8;
 const FADE_PER_DAY: f32 = 0.95;
@@ -242,29 +246,30 @@ impl DictionaryElement {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct CardStatistics {
     pub id: u32,
     pub word_id: u32,
+    pub set_id: u32,
     pub last_open: DateTime<Utc>,
     pub score: u8,
 }
 
 impl CardStatistics {
-    pub fn open(&mut self, status: WordOpenMode) {
+    pub fn update(&mut self, status: WordOpenMode) {
         self.last_open = Utc::now();
         match status {
             WordOpenMode::Easy => {
-                self.score += 5;
+                self.score = self.calculated_score().round() as u8 + 5;
             }
             WordOpenMode::Ok => {
-                self.score += 3;
+                self.score += self.calculated_score().round() as u8 + 3;
             }
             WordOpenMode::Hard => {
-                self.score -= 1;
+                self.score = self.calculated_score().round() as u8 - 1;
             }
             WordOpenMode::None => {
-                self.score /= 2;
+                self.score = (self.calculated_score() * 0.5) as u8;
             }
         }
 
@@ -279,10 +284,11 @@ impl CardStatistics {
         let time = Utc::now() - self.last_open;
         let days = time.num_days();
         let multiplier = FADE_PER_DAY.powi(days as i32);
-        self.score as f32 * multiplier
+        (1.0 / self.score as f32) * multiplier
     }
 }
 
+#[derive(Clone)]
 pub enum WordOpenMode {
     Easy,
     Ok,
@@ -292,22 +298,67 @@ pub enum WordOpenMode {
 
 #[derive(Clone)]
 pub struct CardSet {
+    words: Vec<DictionaryElement>,
     set: Vec<CardStatistics>,
-    last_weights: Vec<f32>,
+    last_weights: WeightedIndex<f32>,
+    current_word_index: Option<usize>,
+    generator: ThreadRng,
+    state: Arc<Mutex<AppState>>
 }
 
 impl CardSet {
-    pub fn new(settings: CardSetSettings, state: Arc<Mutex<AppState>>) -> Self {
+    pub fn new(settings: &CardSetSettings, state: Arc<Mutex<AppState>>) -> Self {
+        let state_for = state.clone();
         let state_locked = state.lock().unwrap();
 
-        let current_set = load_stats_of_set(&settings, &state_locked.connection);
+        let mut current_set = load_stats_of_set(&settings, &state_locked.connection);
         let last_list = settings.get_word_list(&state_locked);
+        let saved_ids = current_set.iter().map(|l| l.word_id).collect::<Vec<u32>>();
+        for word in &last_list {
+            if !saved_ids.contains(&word.id) {
+                let mut new_statistic = CardStatistics {
+                    id: 0,
+                    word_id: word.id.clone(),
+                    last_open: Utc::now(),
+                    score: 1,
+                    set_id: settings.id.clone(),
+                };
 
-        let weights = current_set.iter().map(|x| x.calculated_score()).collect();
+                add_stat(&mut new_statistic, &state_locked.connection);
+
+                current_set.push(new_statistic);
+            }
+        }
+
+        let indexes = WeightedIndex::new(current_set.iter().map(|s| 1.0 / s.score as f32)).unwrap();
 
         Self {
             set: current_set,
-            last_weights: weights,
+            words: last_list,
+            last_weights: indexes,
+            current_word_index: None,
+            generator: rng(),
+            state: state_for
+        }
+    }
+
+    pub fn next(&mut self) -> DictionaryElement {
+        let index = self.last_weights.sample(&mut self.generator);
+        self.current_word_index = Some(index);
+        self.words[index].clone()
+    }
+
+    pub fn open(&mut self, status: WordOpenMode) {
+        if let None = self.current_word_index {
+            return;
+        }
+
+        let word = &mut self.set[self.current_word_index.unwrap()];
+        word.update(status);
+        let new_weight = word.calculated_score();
+        self.last_weights.update_weights(&[(self.current_word_index.unwrap(), &new_weight)]).unwrap();
+        {
+            update_stat_score(word, &self.state.lock().unwrap().connection)
         }
     }
 }

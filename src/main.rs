@@ -24,13 +24,15 @@ use crate::Page::{
     Dictionary, DictionaryQuiz, Quiz, Randomizer, Repetition, Repetitions, Selector, Writing,
 };
 use iced::widget::text;
-use iced::Element;
+use iced::{keyboard, Element, Program, Subscription};
 use iced::{Font, Task};
 use rusqlite::Connection;
 use std::sync::{Arc, Mutex};
+use iced::keyboard::Event;
+use crate::RootMessage::Keyboard;
 
 fn main() -> iced::Result {
-    iced::application(ScreenState::boot, ScreenState::update, ScreenState::view)
+    iced::application(ScreenState::boot, ScreenState::update, ScreenState::view).subscription(subscription)
         .title("Kana learn app")
         .font(include_bytes!("../noto.ttf"))
         .default_font(Font::with_name("Noto Sans JP"))
@@ -38,7 +40,11 @@ fn main() -> iced::Result {
             run()
 }
 
-#[derive(Debug, Clone)]
+fn subscription(_state: &ScreenState) -> Subscription<RootMessage> {
+    keyboard::listen().map(|e| Keyboard(e))
+}
+
+#[derive(Clone)]
 pub enum RootMessage {
     Selector(SelectorMessage),
     Quiz(QuizMessage),
@@ -48,6 +54,7 @@ pub enum RootMessage {
     Randomizer(RandomizerMessage),
     Repetitions(RepetitionsMessage),
     Repetition(RepetitionMessage),
+    Keyboard(keyboard::Event),
 }
 
 enum Page {
@@ -93,6 +100,10 @@ impl ScreenState {
         (ScreenState::default(), Task::none())
     }
     pub fn update(&mut self, message: RootMessage) -> Task<RootMessage> {
+        if let Keyboard(e) = message {
+            return self.handle_keyboard(e);
+        }
+
         state_update!(
             message,
             self.stack,
@@ -107,7 +118,6 @@ impl ScreenState {
         );
         Task::none()
     }
-
     pub fn view(&self) -> Element<'_, RootMessage> {
         view_navigation!(
             self.stack,
@@ -121,7 +131,18 @@ impl ScreenState {
             Repetition
         )
     }
+
+    fn handle_keyboard(&mut self, message: Event) -> Task<RootMessage> {
+        let page = self.stack.last_mut().unwrap();
+        match page {
+            Repetition(page) => page.press(&message),
+            _ => {}
+        }
+        Task::none()
+    }
 }
+
+
 
 #[macro_export]
 macro_rules! view_navigation {
@@ -146,6 +167,7 @@ macro_rules! state_update {
                 }
             }
             )*
+            _ => {}
         }
     }
 }
@@ -167,4 +189,8 @@ macro_rules! message_navigation {
 
 trait NavigatedPage<T> {
     fn navigate(&self, message: &T) -> Option<Page>;
+}
+
+pub trait KeyPressedPage {
+    fn press(&mut self, message: &keyboard::Event);
 }
