@@ -9,6 +9,7 @@ pub fn create_db() {
     if !db_file.exists() {
         std::fs::File::create(&db_file).unwrap();
         let connection = Connection::open(&db_file).unwrap();
+        connection.execute("PRAGMA foreign_keys = ON;", []).unwrap();
         create_words_table(&connection);
         create_card_stat_table(&connection);
         create_card_set_table(&connection);
@@ -120,7 +121,7 @@ fn create_card_stat_table(conn: &Connection) {
             score INTEGER NOT NULL DEFAULT 1,
             last_opened INTEGER NOT NULL,
             FOREIGN KEY (word_id)  REFERENCES words (id) ON DELETE CASCADE,
-            FOREIGN KEY (set_id)  REFERENCES sets (id) ON DELETE CASCADE
+            FOREIGN KEY (set_id)  REFERENCES card_set (id) ON DELETE CASCADE
         )",
         (),
     )

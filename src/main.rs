@@ -84,6 +84,7 @@ impl Default for ScreenState {
         let path = app_data_dir();
         let db_file = path.join("data.db");
         let connection = Connection::open(db_file).unwrap();
+        connection.execute("PRAGMA foreign_keys = ON;", []).unwrap();
         let list: Vec<DictionaryElement> = load_words(&connection);
         let sets: Vec<CardSetSettings> = load_sets(&connection);
 

@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-const MAX_SCORE: u8 = 25_u8;
+const MAX_SCORE: i32 = 25;
 const FADE_PER_DAY: f32 = 0.95;
 #[derive(Clone, Debug)]
 pub struct KanaSet {
@@ -252,7 +252,7 @@ pub struct CardStatistics {
     pub word_id: u32,
     pub set_id: u32,
     pub last_open: DateTime<Utc>,
-    pub score: u8,
+    pub score: i32,
 }
 
 impl CardStatistics {
@@ -260,16 +260,16 @@ impl CardStatistics {
         self.last_open = Utc::now();
         match status {
             WordOpenMode::Easy => {
-                self.score = self.calculated_score().round() as u8 + 5;
+                self.score = (self.calculated_score() + 5.0).round() as i32;
             }
             WordOpenMode::Ok => {
-                self.score += self.calculated_score().round() as u8 + 3;
+                self.score = (self.calculated_score() + 3.0).round() as i32
             }
             WordOpenMode::Hard => {
-                self.score = self.calculated_score().round() as u8 - 1;
+                self.score = (self.calculated_score() - 1.0).round() as i32;
             }
             WordOpenMode::None => {
-                self.score = (self.calculated_score() * 0.5) as u8;
+                self.score = (self.calculated_score() * 0.5) as i32;
             }
         }
 
@@ -284,7 +284,7 @@ impl CardStatistics {
         let time = Utc::now() - self.last_open;
         let days = time.num_days();
         let multiplier = FADE_PER_DAY.powi(days as i32);
-        (1.0 / self.score as f32) * multiplier
+         self.score as f32 * multiplier
     }
 }
 
@@ -330,7 +330,7 @@ impl CardSet {
             }
         }
 
-        let indexes = WeightedIndex::new(current_set.iter().map(|s| 1.0 / s.score as f32)).unwrap();
+        let indexes = WeightedIndex::new(current_set.iter().map(|s| 1.0 / s.calculated_score())).unwrap();
 
         Self {
             set: current_set,
@@ -355,7 +355,7 @@ impl CardSet {
 
         let word = &mut self.set[self.current_word_index.unwrap()];
         word.update(status);
-        let new_weight = word.calculated_score();
+        let new_weight = 1.0 / word.calculated_score();
         self.last_weights.update_weights(&[(self.current_word_index.unwrap(), &new_weight)]).unwrap();
         {
             update_stat_score(word, &self.state.lock().unwrap().connection)
