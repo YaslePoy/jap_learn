@@ -142,10 +142,8 @@ fn create_card_set_table(conn: &Connection) {
         )",
         (),
     )
-    .unwrap_or_else(|e| {
-        println!("{}", e);
-        0
-    });
+        .unwrap_or_else(|e| {
+            println!("{}", e);
+            0
+        });
 }
-
-pub struct Qwerty {}

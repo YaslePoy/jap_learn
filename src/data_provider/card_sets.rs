@@ -1,8 +1,5 @@
-use std::collections::HashMap;
-use iced::time::now;
-use rusqlite::Connection;
-use crate::lang::{CardSet, DictionaryElement};
 use crate::repetitions::CardSetSettings;
+use rusqlite::Connection;
 
 pub fn load_sets(connection: &Connection) -> Vec<CardSetSettings> {
     let mut stmt = connection.prepare("SELECT id, name, forward, backward, filter FROM card_set").unwrap();

@@ -24,7 +24,7 @@ use crate::Page::{
     Dictionary, DictionaryQuiz, Quiz, Randomizer, Repetition, Repetitions, Selector, Writing,
 };
 use iced::widget::text;
-use iced::{keyboard, Element, Program, Subscription};
+use iced::{keyboard, Element, Subscription};
 use iced::{Font, Task};
 use rusqlite::Connection;
 use std::sync::{Arc, Mutex};

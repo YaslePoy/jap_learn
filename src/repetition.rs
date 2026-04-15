@@ -8,7 +8,6 @@ use iced::widget::container::rounded_box;
 use iced::widget::space::vertical;
 use iced::widget::{button, column, container, row, space, text};
 use iced::{alignment, keyboard, Element, Fill, Left, Task};
-use rusqlite::fallible_iterator::FallibleIterator;
 use std::sync::{Arc, Mutex};
 
 pub struct RepetitionState {

@@ -355,16 +355,6 @@ pub fn split_with_coma(ts: String) -> Vec<String> {
         .collect::<Vec<String>>()
 }
 
-pub fn dict_file() -> PathBuf {
-    let mut dir = dirs::data_dir().unwrap();
-    dir.push("jap_learn");
-    if !dir.exists() {
-        fs::create_dir(dir.clone()).unwrap();
-    }
-    dir.push("dict.json");
-    dir
-}
-
 pub fn app_data_dir() -> PathBuf {
     let mut dir = dirs::data_dir().unwrap();
     dir.push("jap_learn");
