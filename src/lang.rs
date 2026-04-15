@@ -1,4 +1,4 @@
-use crate::data_provider::card_stats::{add_stat, load_stats_of_set, update_stat_score};
+use crate::data_provider::card_stats::{add_stat, delete_stat, load_stats_of_set, update_stat_score};
 use crate::repetitions::CardSetSettings;
 use crate::AppState;
 use chrono::{DateTime, Utc};
@@ -263,7 +263,7 @@ impl CardStatistics {
                 self.score = (self.calculated_score() + 5.0).round() as i32;
             }
             WordOpenMode::Ok => {
-                self.score = (self.calculated_score() + 3.0).round() as i32
+                self.score = (self.calculated_score() + 2.0).round() as i32
             }
             WordOpenMode::Hard => {
                 self.score = (self.calculated_score() - 1.0).round() as i32;
@@ -314,6 +314,7 @@ impl CardSet {
         let mut current_set = load_stats_of_set(&settings, &state_locked.connection);
         let last_list = settings.get_word_list(&state_locked);
         let saved_ids = current_set.iter().map(|l| l.word_id).collect::<Vec<u32>>();
+        let word_ids = last_list.iter().map(|l| l.id).collect::<Vec<u32>>();
         for word in &last_list {
             if !saved_ids.contains(&word.id) {
                 let mut new_statistic = CardStatistics {
@@ -330,7 +331,17 @@ impl CardSet {
             }
         }
 
-        let indexes = WeightedIndex::new(current_set.iter().map(|s| 1.0 / s.calculated_score())).unwrap();
+        let mut index = 0;
+        for stat in current_set.clone() {
+            if !word_ids.contains(&stat.word_id) {
+                delete_stat(&stat, &state_locked.connection);
+                current_set.remove(index);
+            }
+            index += 1;
+        }
+
+        let weights = current_set.iter().map(|s| (100.0 / s.calculated_score()).powi(2)).collect::<Vec<f32>>();
+        let indexes = WeightedIndex::new(weights).unwrap();
 
         Self {
             set: current_set,
@@ -355,7 +366,7 @@ impl CardSet {
 
         let word = &mut self.set[self.current_word_index.unwrap()];
         word.update(status);
-        let new_weight = 1.0 / word.calculated_score();
+        let new_weight = (100.0 / word.calculated_score()).powi(2);
         self.last_weights.update_weights(&[(self.current_word_index.unwrap(), &new_weight)]).unwrap();
         {
             update_stat_score(word, &self.state.lock().unwrap().connection)

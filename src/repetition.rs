@@ -58,6 +58,7 @@ impl RepetitionState {
         if self.open {
             self.set.open(WordOpenMode::None);
             self.current_word = self.set.next();
+            self.open = false;
             return;
         } else {
             self.open = true;

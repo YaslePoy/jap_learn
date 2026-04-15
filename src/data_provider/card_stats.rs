@@ -74,12 +74,12 @@ pub fn update_stat_score(stat: &CardStatistics, connection: &Connection){
             .unwrap_or_else(|e| {println!("{}", e); 0});
 }
 
-pub fn delete_set(set: &CardSetSettings, connection: &Connection) {
-    if set.id == 0 {
+pub fn delete_stat(stat: &CardStatistics, connection: &Connection) {
+    if stat.id == 0 {
         return;
     }
     connection
-        .execute("DELETE FROM card_stats WHERE id = ?1", (&set.id,))
+        .execute("DELETE FROM card_stats WHERE id = ?1", (&stat.id,))
         .unwrap_or_else(|e| {
             println!("{}", e);
             0
