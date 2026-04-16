@@ -31,6 +31,8 @@ use std::sync::{Arc, Mutex};
 use iced::keyboard::Event;
 use crate::RootMessage::Keyboard;
 
+const DEFAULT_SPACING: f32 = 10.0;
+
 fn main() -> iced::Result {
     iced::application(ScreenState::boot, ScreenState::update, ScreenState::view).subscription(subscription)
         .title("Kana learn app")

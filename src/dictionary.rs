@@ -2,7 +2,7 @@ use crate::data_provider::words::{delete_word, update_word};
 use crate::dictionary::DictionaryMessage::Test;
 use crate::dictionary_test::DictionaryQuizState;
 use crate::lang::DictionaryElement;
-use crate::{AppState, NavigatedPage, Page, RootMessage};
+use crate::{AppState, NavigatedPage, Page, RootMessage, DEFAULT_SPACING};
 use iced::alignment::Vertical::Center;
 use iced::widget::button::Style;
 use iced::widget::*;
@@ -34,7 +34,6 @@ pub enum DictionaryMessage {
     NewWord,
     Include(usize, bool),
     IncludeTag(String, bool),
-    Save,
     Test,
     ResetTags,
     SetReverse(bool),
@@ -126,15 +125,6 @@ impl DictionaryState {
                 self.tag_map.iter_mut().for_each(|(_, v)| *v = false);
                 self.include_map.iter_mut().for_each(|x| *x = false)
             }
-
-            DictionaryMessage::Save => {
-            /*    let dir = dict_file();
-                let dict = &self.state.lock().unwrap().dictionary;
-
-                let content = serde_json::to_string_pretty(&dict.clone()).unwrap();
-                fs::write(dir, content.clone())
-                    .unwrap_or_else(|e| println!("Can't write file: {}", e));*/
-            }
             DictionaryMessage::SetReverse(v) => self.reverse = v,
             DictionaryMessage::Search(s) => {
                 self.search = s;
@@ -160,16 +150,12 @@ impl DictionaryState {
                 iced::widget::column![
                     button("Назад").on_press(Back),
                     self.words_list(),
-                    row![
-                        button("Добавить слово").on_press(DictionaryMessage::NewWord),
-                        button("Сохранить словарь").on_press(DictionaryMessage::Save),
-                    ]
-                    .spacing(10)
+                    button("Добавить слово").on_press(DictionaryMessage::NewWord),
                 ]
                 .spacing(5),
                 self.filters()
             ]
-            .spacing(10),
+            .spacing(DEFAULT_SPACING),
         )
         .padding(10)
         .into()
@@ -266,7 +252,7 @@ impl DictionaryState {
                 .width(Length::Fill),
         ]
         .width(250)
-        .spacing(10)
+        .spacing(DEFAULT_SPACING)
         .into()
     }
 

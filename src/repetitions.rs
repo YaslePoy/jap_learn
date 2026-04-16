@@ -2,7 +2,7 @@ use crate::data_provider::card_sets::{delete_set, update_card_set};
 use crate::lang::DictionaryElement;
 use crate::repetition::RepetitionState;
 use crate::Page::{PreviousPage, Repetition};
-use crate::{AppState, NavigatedPage, Page, RootMessage};
+use crate::{AppState, NavigatedPage, Page, RootMessage, DEFAULT_SPACING};
 pub use iced::widget::button::{Catalog, Style};
 use iced::widget::{button, column, container, row, scrollable, space, text, text_input, Column};
 use iced::Background::Color;
@@ -112,14 +112,14 @@ impl RepetitionsState {
                             .width(Fill)
                             .on_press(RepetitionsMessage::CreateSet),
                     ]
-                    .spacing(10)
+                    .spacing(DEFAULT_SPACING)
                     .width(Length::FillPortion(1)),
                     self.selected_set_view(),
                     self.launch_button()
                 ]
                 .align_y(Center)
                 .padding(10)
-                .spacing(10)
+                .spacing(DEFAULT_SPACING)
                 .width(Fill)
                 .height(Fill)
             ]
@@ -159,7 +159,7 @@ impl RepetitionsState {
                         button("Проверить фильтр").on_press(RepetitionsMessage::TryFilter),
                         self.count_view(&sets[index])
                     ]
-                    .spacing(10)
+                    .spacing(DEFAULT_SPACING)
                 )
                 .height(Fill),
                 row![
@@ -174,9 +174,9 @@ impl RepetitionsState {
                         })
                         .on_press(RepetitionsMessage::DeleteSet)
                 ]
-                .spacing(10),
+                .spacing(DEFAULT_SPACING),
             ]
-            .spacing(10)
+            .spacing(DEFAULT_SPACING)
             .width(Length::FillPortion(2))
             .into();
         }

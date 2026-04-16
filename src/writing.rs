@@ -1,6 +1,6 @@
 use crate::lang::KanaSet;
 use crate::Page::PreviousPage;
-use crate::{NavigatedPage, Page, RootMessage};
+use crate::{NavigatedPage, Page, RootMessage, DEFAULT_SPACING};
 use iced::widget::*;
 use iced::{alignment, Element, Fill, Task};
 use rand::seq::SliceRandom;
@@ -96,9 +96,9 @@ impl WritingState {
                     button(text!("{}", self.next_text)).on_press(WritingMessage::Next),
                     button("Закончить").on_press(WritingMessage::Back),
                 ]
-                .spacing(10)
+                .spacing(DEFAULT_SPACING)
             ]
-            .spacing(10)
+            .spacing(DEFAULT_SPACING)
             .align_x(alignment::Horizontal::Center),
         )
         .center_x(Fill)

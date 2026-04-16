@@ -1,6 +1,6 @@
 use crate::lang::KanaSet;
 use crate::Page::PreviousPage;
-use crate::{NavigatedPage, Page, RootMessage};
+use crate::{NavigatedPage, Page, RootMessage, DEFAULT_SPACING};
 use iced::widget::*;
 use iced::{alignment, Element, Fill, Task};
 use rand::seq::SliceRandom;
@@ -126,10 +126,10 @@ impl QuizState {
                         .color(iced::Color::from_rgb8(255, 79, 0))
                         .size(25),
                 ]
-                .spacing(10),
+                .spacing(DEFAULT_SPACING),
                 button("Закончить").on_press(QuizMessage::Back),
             ]
-            .spacing(10)
+            .spacing(DEFAULT_SPACING)
             .align_x(alignment::Horizontal::Center),
         )
         .center_y(Fill)

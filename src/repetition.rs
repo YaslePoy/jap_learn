@@ -1,7 +1,7 @@
 use crate::lang::{CardSet, DictionaryElement, WordOpenMode};
 use crate::repetitions::CardSetSettings;
 use crate::Page::PreviousPage;
-use crate::{AppState, KeyPressedPage, NavigatedPage, Page, RootMessage};
+use crate::{AppState, KeyPressedPage, NavigatedPage, Page, RootMessage, DEFAULT_SPACING};
 use iced::alignment::Horizontal::Center;
 use iced::keyboard::key::Physical::Code;
 use iced::widget::container::rounded_box;
@@ -139,7 +139,7 @@ impl RepetitionState {
             button("Нормально").on_press(RepetitionMessage::Answer(WordOpenMode::Ok)),
             button("Легко").on_press(RepetitionMessage::Answer(WordOpenMode::Easy)),
         ]
-        .spacing(10)
+        .spacing(DEFAULT_SPACING)
         .into()
     }
 

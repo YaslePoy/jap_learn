@@ -1,7 +1,7 @@
 use crate::dictionary::{split_with_coma};
 use crate::quiz::Score;
 use crate::Page::PreviousPage;
-use crate::RootMessage;
+use crate::{RootMessage, DEFAULT_SPACING};
 use crate::{NavigatedPage, Page};
 use iced::border::Radius;
 use iced::widget::container::Style;
@@ -102,14 +102,14 @@ impl DictionaryQuizState {
                         .color(iced::Color::from_rgb8(255, 79, 0))
                         .size(25),
                 ]
-                .spacing(10),
+                .spacing(DEFAULT_SPACING),
                 row![
                     button("Закончить").on_press(DictionaryQuizMessage::Back),
                     self.appeal_button()
                 ]
-                .spacing(10),
+                .spacing(DEFAULT_SPACING),
             ]
-            .spacing(10)
+            .spacing(DEFAULT_SPACING)
             .align_x(alignment::Horizontal::Center),
         )
         .center_y(Fill)
@@ -199,7 +199,7 @@ impl DictionaryQuizState {
                 },
             ));
         }
-        col.spacing(10).into()
+        col.spacing(DEFAULT_SPACING).into()
     }
 
     fn appeal_button(&self) -> Element<'_, DictionaryQuizMessage> {

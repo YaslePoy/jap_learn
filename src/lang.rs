@@ -257,7 +257,6 @@ pub struct CardStatistics {
 
 impl CardStatistics {
     pub fn update(&mut self, status: WordOpenMode) {
-        self.last_open = Utc::now();
         match status {
             WordOpenMode::Easy => {
                 self.score = (self.calculated_score() + 5.0).round() as i32;
@@ -278,6 +277,8 @@ impl CardStatistics {
         } else if self.score > MAX_SCORE {
             self.score = MAX_SCORE
         }
+        self.last_open = Utc::now();
+
     }
 
     pub fn calculated_score(&self) -> f32 {
@@ -340,7 +341,7 @@ impl CardSet {
             index += 1;
         }
 
-        let weights = current_set.iter().map(|s| (100.0 / s.calculated_score()).powi(2)).collect::<Vec<f32>>();
+        let weights = current_set.iter().map(|s| (100.0 / s.calculated_score()).powf(1.5)).collect::<Vec<f32>>();
         let indexes = WeightedIndex::new(weights).unwrap();
 
         Self {
@@ -366,7 +367,7 @@ impl CardSet {
 
         let word = &mut self.set[self.current_word_index.unwrap()];
         word.update(status);
-        let new_weight = (100.0 / word.calculated_score()).powi(2);
+        let new_weight = (100.0 / word.calculated_score()).powf(1.5);
         self.last_weights.update_weights(&[(self.current_word_index.unwrap(), &new_weight)]).unwrap();
         {
             update_stat_score(word, &self.state.lock().unwrap().connection)

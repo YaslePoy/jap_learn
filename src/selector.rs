@@ -6,7 +6,7 @@ use crate::repetitions::RepetitionsState;
 use crate::selector::SelectorMessage::ChangeMode;
 use crate::writing::WritingState;
 use crate::Page::{Quiz, Writing};
-use crate::{AppState, NavigatedPage, Page, QuizState, RootMessage};
+use crate::{AppState, NavigatedPage, Page, QuizState, RootMessage, DEFAULT_SPACING};
 use iced::widget::*;
 use iced::{alignment, Element, Task};
 
@@ -82,14 +82,14 @@ impl SelectorState {
                     button("Рандомайзер").on_press(SelectorMessage::ToRandomize),
                     button("Повторение").on_press(SelectorMessage::ToRepetitions)
                 ]
-                .spacing(10),
+                .spacing(DEFAULT_SPACING),
                 self.rows_selector(),
                 toggler(self.is_writing)
                     .label("Режим письма")
                     .on_toggle(ChangeMode),
                 button("К тесту").on_press(SelectorMessage::Goto),
             ]
-            .spacing(10),
+            .spacing(DEFAULT_SPACING),
         )
         .padding(10)
         .into()
@@ -115,11 +115,11 @@ impl SelectorState {
 
             row = row.push(
                 chars_column
-                    .spacing(10)
+                    .spacing(DEFAULT_SPACING)
                     .align_x(alignment::Horizontal::Center),
             );
         }
 
-        row.spacing(10).into()
+        row.spacing(DEFAULT_SPACING).into()
     }
 }
