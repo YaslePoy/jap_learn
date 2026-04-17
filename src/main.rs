@@ -9,6 +9,8 @@ mod repetitions;
 mod selector;
 mod writing;
 mod data_provider;
+mod word;
+
 use crate::data_provider::card_sets::load_sets;
 use crate::data_provider::words::{create_db, load_words};
 use crate::dictionary::{app_data_dir, DictionaryMessage, DictionaryState};
@@ -19,17 +21,18 @@ use crate::randomizer::randomizer::{RandomizerMessage, RandomizerState};
 use crate::repetition::{RepetitionMessage, RepetitionState};
 use crate::repetitions::{CardSetSettings, RepetitionsMessage, RepetitionsState};
 use crate::selector::*;
+use crate::word::{WordMessage, WordState};
 use crate::writing::{WritingMessage, WritingState};
 use crate::Page::{
-    Dictionary, DictionaryQuiz, Quiz, Randomizer, Repetition, Repetitions, Selector, Writing,
+    Dictionary, DictionaryQuiz, Quiz, Randomizer, Repetition, Repetitions, Selector, Word, Writing
 };
+use crate::RootMessage::Keyboard;
+use iced::keyboard::Event;
 use iced::widget::text;
 use iced::{keyboard, Element, Subscription};
 use iced::{Font, Task};
 use rusqlite::Connection;
 use std::sync::{Arc, Mutex};
-use iced::keyboard::Event;
-use crate::RootMessage::Keyboard;
 
 const DEFAULT_SPACING: f32 = 10.0;
 
@@ -56,7 +59,8 @@ pub enum RootMessage {
     Randomizer(RandomizerMessage),
     Repetitions(RepetitionsMessage),
     Repetition(RepetitionMessage),
-    Keyboard(keyboard::Event),
+    Word(WordMessage),
+    Keyboard(Event),
 }
 
 enum Page {
@@ -68,6 +72,7 @@ enum Page {
     Randomizer(RandomizerState),
     Repetitions(RepetitionsState),
     Repetition(RepetitionState),
+    Word(WordState),
     PreviousPage,
 }
 
@@ -117,7 +122,8 @@ impl ScreenState {
             DictionaryQuiz,
             Randomizer,
             Repetitions,
-            Repetition
+            Repetition,
+            Word
         );
         Task::none()
     }
@@ -131,7 +137,8 @@ impl ScreenState {
             DictionaryQuiz,
             Randomizer,
             Repetitions,
-            Repetition
+            Repetition,
+            Word
         )
     }
 
@@ -197,3 +204,13 @@ trait NavigatedPage<T> {
 pub trait KeyPressedPage {
     fn press(&mut self, message: &keyboard::Event);
 }
+
+/*pub fn danger_button(x: &Theme, status: Status) -> Style{
+    Style {
+        background: Some(Color(x.palette().danger)),
+        text_color: x.palette().text,
+        border: Border::default().rounded(2),
+        shadow: Default::default(),
+        snap: false,
+    }
+}*/

@@ -3,9 +3,9 @@ use crate::lang::DictionaryElement;
 use crate::repetition::RepetitionState;
 use crate::Page::{PreviousPage, Repetition};
 use crate::{AppState, NavigatedPage, Page, RootMessage, DEFAULT_SPACING};
+use iced::widget::button::danger;
 pub use iced::widget::button::{Catalog, Style};
 use iced::widget::{button, column, container, row, scrollable, space, text, text_input, Column};
-use iced::Background::Color;
 use iced::{Border, Center, Element, Fill, Left, Length, Shadow, Task, Theme};
 use rhai::{Engine, Scope};
 use std::sync::{Arc, Mutex};
@@ -165,13 +165,7 @@ impl RepetitionsState {
                 row![
                     button("Сохранить").on_press(RepetitionsMessage::Save),
                     button("Удалить")
-                        .style(|x: &Theme, _status| Style {
-                            background: Some(Color(x.palette().danger)),
-                            text_color: x.palette().text,
-                            border: Border::default().rounded(2),
-                            shadow: Default::default(),
-                            snap: false,
-                        })
+                        .style(danger)
                         .on_press(RepetitionsMessage::DeleteSet)
                 ]
                 .spacing(DEFAULT_SPACING),

@@ -2,6 +2,8 @@ use crate::data_provider::words::{delete_word, update_word};
 use crate::dictionary::DictionaryMessage::Test;
 use crate::dictionary_test::DictionaryQuizState;
 use crate::lang::DictionaryElement;
+use crate::word::WordState;
+use crate::Page::Word;
 use crate::{AppState, NavigatedPage, Page, RootMessage, DEFAULT_SPACING};
 use iced::alignment::Vertical::Center;
 use iced::widget::button::Style;
@@ -30,7 +32,7 @@ pub enum DictionaryMessage {
     SetKey(usize, String),
     SetValue(usize, String),
     SubmitWord(usize),
-    Remove(usize),
+    WordAction(usize),
     NewWord,
     Include(usize, bool),
     IncludeTag(String, bool),
@@ -61,6 +63,17 @@ impl NavigatedPage<DictionaryMessage> for DictionaryState {
                     self.reverse,
                     self.no_typing,
                 )));
+            }
+        }
+        if let DictionaryMessage::WordAction(index) = message {
+            let word : DictionaryElement;
+            {
+                let state = self.state.lock().unwrap();
+                let dict = &state.dictionary;
+                word = dict[*index].clone();
+            }
+            if word.id != 0 {
+                return Some(Word(WordState::new(word, *index, self.state.clone())));
             }
         }
         None
@@ -109,7 +122,7 @@ impl DictionaryState {
                 self.update_tags();
             }
 
-            DictionaryMessage::Remove(i) => {
+            DictionaryMessage::WordAction(i) => {
                 let state = &mut self.state.lock().unwrap();
                 let dict = &mut state.dictionary;
                 let word = dict.remove(i);
@@ -207,19 +220,25 @@ impl DictionaryState {
                     .on_submit(DictionaryMessage::SubmitWord(i)),
             );
 
-            line = line
-                .push(
-                    button("-")
-                        .on_press_with(move || DictionaryMessage::Remove(i))
+            let line_button = || {
+                if word.id == 0 {
+                    return button("-")
+                        .on_press_with(move || DictionaryMessage::WordAction(i))
                         .style(|_x, _status| Style {
                             background: None,
                             text_color: Color::BLACK,
                             border: Border::default(),
                             shadow: Shadow::default(),
                             snap: false,
-                        }),
-                )
-                .push(space().width(10));
+                        });
+                }
+
+                button("")
+                    .on_press_with(move || DictionaryMessage::WordAction(i))
+                    .width(15)
+            };
+
+            line = line.push(line_button()).push(space().width(10));
 
             col = col.push(line);
             i += 1;
