@@ -1,3 +1,4 @@
+use std::cmp::min;
 use crate::data_provider::card_stats::{add_stat, delete_stat, load_stats_of_set, update_stat_score};
 use crate::repetitions::CardSetSettings;
 use crate::AppState;
@@ -10,6 +11,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+const MAX_HISTORY_LEN: usize = 50;
+const MAX_HISTORY_LEN_PART: f32 = 0.33;
 const MAX_SCORE: i32 = 25;
 const FADE_PER_DAY: f32 = 0.95;
 #[derive(Clone, Debug)]
@@ -304,7 +307,8 @@ pub struct CardSet {
     last_weights: WeightedIndex<f32>,
     current_word_index: Option<usize>,
     generator: ThreadRng,
-    state: Arc<Mutex<AppState>>
+    state: Arc<Mutex<AppState>>,
+    history: Vec<usize>
 }
 
 impl CardSet {
@@ -350,12 +354,23 @@ impl CardSet {
             last_weights: indexes,
             current_word_index: None,
             generator: rng(),
-            state: state_for
+            state: state_for,
+            history: vec![],
         }
     }
 
+
     pub fn next(&mut self) -> DictionaryElement {
         let index = self.last_weights.sample(&mut self.generator);
+
+        if self.history.contains(&index) {
+            return self.next()
+        }
+
+        if self.history.len() == self.history_len() {
+            self.history.remove(0);
+        }
+        self.history.push(index);
         self.current_word_index = Some(index);
         self.words[index].clone()
     }
@@ -372,5 +387,9 @@ impl CardSet {
         {
             update_stat_score(word, &self.state.lock().unwrap().connection)
         }
+    }
+
+    fn history_len(&self) -> usize {
+        return min(MAX_HISTORY_LEN, (self.set.len() as f32 * MAX_HISTORY_LEN_PART) as usize);
     }
 }
