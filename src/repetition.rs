@@ -4,9 +4,7 @@ use crate::Page::PreviousPage;
 use crate::{AppState, KeyPressedPage, NavigatedPage, Page, RootMessage, DEFAULT_SPACING};
 use iced::alignment::Horizontal::Center;
 use iced::keyboard::key::Physical::Code;
-use iced::widget::container::rounded_box;
-use iced::widget::space::vertical;
-use iced::widget::{button, column, container, row, space, text};
+use iced::widget::{button, column, container, row, rule, space, text};
 use iced::{alignment, keyboard, Element, Fill, Left, Task};
 use std::sync::{Arc, Mutex};
 
@@ -46,8 +44,8 @@ impl RepetitionState {
     pub fn update(&mut self, message: RepetitionMessage) -> Task<RootMessage> {
         match message {
             RepetitionMessage::Back => {}
-            RepetitionMessage::Next => {self.next()}
-            RepetitionMessage::Answer(m) => {self.answer(m)}
+            RepetitionMessage::Next => self.next(),
+            RepetitionMessage::Answer(m) => self.answer(m),
         }
 
         Task::none()
@@ -84,15 +82,16 @@ impl RepetitionState {
                         .height(Fill)
                         .align_x(Center)
                         .align_y(alignment::Vertical::Center),
-                    container(vertical().height(5)).width(Fill).padding(5).style(rounded_box),
+                    rule::horizontal(2),
                     container(self.draw_backward())
                         .width(Fill)
                         .height(Fill)
                         .align_x(Center)
                         .align_y(alignment::Vertical::Center),
-                    container(
-                    self.answer_bar()
-                    ).width(Fill).align_x(Center).height(30)
+                    container(self.answer_bar())
+                        .width(Fill)
+                        .align_x(Center)
+                        .height(30)
                 ]
                 .height(Fill)
                 .width(Fill)
@@ -112,7 +111,6 @@ impl RepetitionState {
             "value" => self.draw_value(word),
             _ => space().into(),
         }
-
     }
 
     fn draw_backward(&self) -> Element<'_, RepetitionMessage> {
