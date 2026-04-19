@@ -1,3 +1,4 @@
+use crate::data_provider::voice::get_voice;
 use crate::lang::{CardSet, DictionaryElement, WordOpenMode};
 use crate::repetitions::CardSetSettings;
 use crate::Page::PreviousPage;
@@ -6,7 +7,9 @@ use iced::alignment::Horizontal::Center;
 use iced::keyboard::key::Physical::Code;
 use iced::widget::{button, column, container, row, rule, space, text};
 use iced::{alignment, keyboard, Element, Fill, Left, Task};
+use rodio::MixerDeviceSink;
 use std::sync::{Arc, Mutex};
+use tokio::task::spawn_blocking;
 
 pub struct RepetitionState {
     pub settings: CardSetSettings,
@@ -14,6 +17,8 @@ pub struct RepetitionState {
     pub state: Arc<Mutex<AppState>>,
     current_word: DictionaryElement,
     open: bool,
+    can_play: bool,
+    sink: Arc<MixerDeviceSink>,
 }
 
 impl NavigatedPage<RepetitionMessage> for RepetitionState {
@@ -30,12 +35,16 @@ impl RepetitionState {
     pub(crate) fn new(set: CardSetSettings, state: Arc<Mutex<AppState>>) -> RepetitionState {
         let mut card_set = CardSet::new(&set, state.clone());
         let word = card_set.next();
+        let sink_handle = rodio::DeviceSinkBuilder::open_default_sink().unwrap();
+
         RepetitionState {
             settings: set,
             set: card_set,
             state,
             current_word: word,
             open: false,
+            can_play: true,
+            sink: Arc::new(sink_handle)
         }
     }
 }
@@ -46,10 +55,25 @@ impl RepetitionState {
             RepetitionMessage::Back => {}
             RepetitionMessage::Next => self.next(),
             RepetitionMessage::Answer(m) => self.answer(m),
+            RepetitionMessage::Play => {
+                if !self.can_play {
+                    return Task::none()
+                }
+
+                self.can_play = false;
+                let value = self.current_word.key.clone();
+
+                return Task::perform(play_sound(self.sink.clone(), value), |_| RootMessage::Repetition(RepetitionMessage::PlayFinished));
+            },
+            RepetitionMessage::PlayFinished => {
+                self.can_play = true;
+            }
         }
 
         Task::none()
     }
+
+
 
     fn next(&mut self) {
         if self.open {
@@ -109,6 +133,7 @@ impl RepetitionState {
         match self.settings.forward.as_str() {
             "key" => self.draw_key(word),
             "value" => self.draw_value(word),
+            "speech" => self.draw_voice(word),
             _ => space().into(),
         }
     }
@@ -122,6 +147,7 @@ impl RepetitionState {
         match self.settings.backward.as_str() {
             "key" => self.draw_key(word),
             "value" => self.draw_value(word),
+            "speech" => self.draw_voice(word),
             _ => space().into(),
         }
     }
@@ -146,6 +172,12 @@ impl RepetitionState {
     }
     fn draw_value(&self, word: &DictionaryElement) -> Element<'_, RepetitionMessage> {
         text!("{}", word.value).size(24).into()
+    }
+
+    fn draw_voice(&self, word: &DictionaryElement) -> Element<'_, RepetitionMessage> {
+        button("Воспроизвести")
+            .on_press(RepetitionMessage::Play)
+            .into()
     }
 }
 
@@ -180,4 +212,14 @@ pub enum RepetitionMessage {
     Next,
     Back,
     Answer(WordOpenMode),
+    Play,
+    PlayFinished,
+}
+
+async fn play_sound(sink: Arc<MixerDeviceSink>, text: String) {
+    let data = get_voice(text.as_str()).await;
+    spawn_blocking(move || {
+        rodio::play(&sink.mixer(), data).unwrap().sleep_until_end();
+
+    }).await.unwrap();
 }
