@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-const MAX_HISTORY_LEN: usize = 50;
+const MAX_HISTORY_LEN: usize = 20;
 const MAX_HISTORY_LEN_PART: f32 = 0.33;
 const MAX_SCORE: i32 = 25;
 const FADE_PER_DAY: f32 = 0.95;
@@ -345,7 +345,7 @@ impl CardSet {
             index += 1;
         }
 
-        let weights = current_set.iter().map(|s| (100.0 / s.calculated_score()).powf(1.5)).collect::<Vec<f32>>();
+        let weights = current_set.iter().map(|s| (100.0 / s.calculated_score()).powf(2.0)).collect::<Vec<f32>>();
         let indexes = WeightedIndex::new(weights).unwrap();
 
         Self {
@@ -382,7 +382,7 @@ impl CardSet {
 
         let word = &mut self.set[self.current_word_index.unwrap()];
         word.update(status);
-        let new_weight = (100.0 / word.calculated_score()).powf(1.5);
+        let new_weight = (100.0 / word.calculated_score()).powf(2.0);
         self.last_weights.update_weights(&[(self.current_word_index.unwrap(), &new_weight)]).unwrap();
         {
             update_stat_score(word, &self.state.lock().unwrap().connection)

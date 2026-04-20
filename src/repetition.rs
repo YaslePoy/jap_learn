@@ -53,8 +53,8 @@ impl RepetitionState {
     pub fn update(&mut self, message: RepetitionMessage) -> Task<RootMessage> {
         match message {
             RepetitionMessage::Back => {}
-            RepetitionMessage::Next => self.next(),
-            RepetitionMessage::Answer(m) => self.answer(m),
+            RepetitionMessage::Next => return self.next(),
+            RepetitionMessage::Answer(m) => return self.answer(m),
             RepetitionMessage::Play => {
                 if !self.can_play {
                     return Task::none()
@@ -75,25 +75,29 @@ impl RepetitionState {
 
 
 
-    fn next(&mut self) {
+    fn next(&mut self) -> Task<RootMessage> {
         if self.open {
             self.set.open(WordOpenMode::None);
             self.current_word = self.set.next();
             self.open = false;
-            return;
+
+            return Task::perform(play_sound(self.sink.clone(), self.current_word.key.clone()), |_| RootMessage::Repetition(RepetitionMessage::PlayFinished));
         } else {
             self.open = true;
+            return Task::none();
         }
     }
 
-    fn answer(&mut self, mode: WordOpenMode) {
+    fn answer(&mut self, mode: WordOpenMode) -> Task<RootMessage> {
         if !self.open {
-            return;
+            return Task::none();
         }
 
         self.set.open(mode);
         self.open = false;
         self.current_word = self.set.next();
+        return Task::perform(play_sound(self.sink.clone(), self.current_word.key.clone()), |_| RootMessage::Repetition(RepetitionMessage::PlayFinished));
+
     }
 
     pub fn view(&self) -> Element<'_, RepetitionMessage> {
@@ -133,7 +137,7 @@ impl RepetitionState {
         match self.settings.forward.as_str() {
             "key" => self.draw_key(word),
             "value" => self.draw_value(word),
-            "speech" => self.draw_voice(word),
+            "speech" => self.draw_voice(),
             _ => space().into(),
         }
     }
@@ -147,7 +151,7 @@ impl RepetitionState {
         match self.settings.backward.as_str() {
             "key" => self.draw_key(word),
             "value" => self.draw_value(word),
-            "speech" => self.draw_voice(word),
+            "speech" => self.draw_voice(),
             _ => space().into(),
         }
     }
@@ -174,7 +178,8 @@ impl RepetitionState {
         text!("{}", word.value).size(24).into()
     }
 
-    fn draw_voice(&self, word: &DictionaryElement) -> Element<'_, RepetitionMessage> {
+    fn draw_voice(&self) -> Element<'_, RepetitionMessage> {
+
         button("Воспроизвести")
             .on_press(RepetitionMessage::Play)
             .into()
@@ -182,7 +187,7 @@ impl RepetitionState {
 }
 
 impl KeyPressedPage for RepetitionState {
-    fn press(&mut self, message: &keyboard::Event) {
+    fn press(&mut self, message: &keyboard::Event) -> iced::Task<RootMessage> {
         if let keyboard::Event::KeyPressed {
             key: _,
             modified_key: _,
@@ -194,16 +199,19 @@ impl KeyPressedPage for RepetitionState {
         } = message
         {
             if let Code(code) = pk {
-                match code {
+                return match code {
                     keyboard::key::Code::Space => self.next(),
                     keyboard::key::Code::Digit1 => self.answer(WordOpenMode::None),
                     keyboard::key::Code::Digit2 => self.answer(WordOpenMode::Hard),
                     keyboard::key::Code::Digit3 => self.answer(WordOpenMode::Ok),
                     keyboard::key::Code::Digit4 => self.answer(WordOpenMode::Easy),
-                    _ => {}
+                    _ => Task::none(),
                 }
             }
+
         }
+        Task::none()
+
     }
 }
 
@@ -220,6 +228,5 @@ async fn play_sound(sink: Arc<MixerDeviceSink>, text: String) {
     let data = get_voice(text.as_str()).await;
     spawn_blocking(move || {
         rodio::play(&sink.mixer(), data).unwrap().sleep_until_end();
-
     }).await.unwrap();
 }
