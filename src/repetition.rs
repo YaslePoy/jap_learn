@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use crate::data_provider::voice::get_voice;
 use crate::lang::{CardSet, DictionaryElement, WordOpenMode};
 use crate::repetitions::CardSetSettings;
@@ -19,6 +20,7 @@ pub struct RepetitionState {
     open: bool,
     can_play: bool,
     sink: Arc<MixerDeviceSink>,
+    opened: HashSet<u32>,
 }
 
 impl NavigatedPage<RepetitionMessage> for RepetitionState {
@@ -44,7 +46,8 @@ impl RepetitionState {
             current_word: word,
             open: false,
             can_play: true,
-            sink: Arc::new(sink_handle)
+            sink: Arc::new(sink_handle),
+            opened: HashSet::new(),
         }
     }
 }
@@ -62,8 +65,9 @@ impl RepetitionState {
 
                 self.can_play = false;
                 let value = self.current_word.key.clone();
-
-                return Task::perform(play_sound(self.sink.clone(), value), |_| RootMessage::Repetition(RepetitionMessage::PlayFinished));
+                if self.settings.require_speech() {
+                    return Task::perform(play_sound(self.sink.clone(), value), |_| RootMessage::Repetition(RepetitionMessage::PlayFinished));
+                }
             },
             RepetitionMessage::PlayFinished => {
                 self.can_play = true;
@@ -77,11 +81,7 @@ impl RepetitionState {
 
     fn next(&mut self) -> Task<RootMessage> {
         if self.open {
-            self.set.open(WordOpenMode::None);
-            self.current_word = self.set.next();
-            self.open = false;
-
-            return Task::perform(play_sound(self.sink.clone(), self.current_word.key.clone()), |_| RootMessage::Repetition(RepetitionMessage::PlayFinished));
+            self.answer(WordOpenMode::None)
         } else {
             self.open = true;
             return Task::none();
@@ -95,9 +95,13 @@ impl RepetitionState {
 
         self.set.open(mode);
         self.open = false;
+        self.opened.insert(self.current_word.id);
         self.current_word = self.set.next();
-        return Task::perform(play_sound(self.sink.clone(), self.current_word.key.clone()), |_| RootMessage::Repetition(RepetitionMessage::PlayFinished));
 
+        if self.settings.require_speech() {
+            return Task::perform(play_sound(self.sink.clone(), self.current_word.key.clone()), |_| RootMessage::Repetition(RepetitionMessage::PlayFinished));
+        }
+        Task::none()
     }
 
     pub fn view(&self) -> Element<'_, RepetitionMessage> {
@@ -119,7 +123,8 @@ impl RepetitionState {
                     container(self.answer_bar())
                         .width(Fill)
                         .align_x(Center)
-                        .height(30)
+                        .height(30),
+                    text!("Затронуто слов {}, {}%", self.opened.len(), (self.opened.len() as f32 / self.set.len() as f32 * 10000.0).round() / 100.0)
                 ]
                 .height(Fill)
                 .width(Fill)
