@@ -110,10 +110,10 @@ impl WordState {
     }
 
     fn get_view_for_more(&self, value: (&String, &String)) -> Element<'_, WordMessage> {
-        return match value.0.as_str() {
+        match value.0.as_str() {
             "reading" => self.reading_field(value),
             _ => space().into(),
-        };
+        }
     }
 
     fn reading_field(&self, value: (&String, &String)) -> Element<'_, WordMessage> {

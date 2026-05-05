@@ -39,28 +39,6 @@ pub fn add_stat(stat: &mut CardStatistics, connection: &Connection) {
     stat.id = index;
 }
 
-pub fn update_stat(stat: &mut CardStatistics, connection: &Connection){
-    if stat.id == 0 {
-        add_stat(stat, &connection);
-    }
-
-    else {
-        connection
-            .execute(
-                "UPDATE card_stats SET word_id = ?1, set_id = ?2, score = ?3, last_opened = ?4 WHERE id = ?5",
-                (
-                    &stat.word_id,
-                    &stat.set_id,
-                    &stat.score,
-                    &stat.last_open,
-                    &stat.id
-                ),
-            )
-            .unwrap_or_else(|e| {println!("{}", e); 0});
-    }
-}
-
-
 pub fn update_stat_score(stat: &CardStatistics, connection: &Connection){
         connection
             .execute(

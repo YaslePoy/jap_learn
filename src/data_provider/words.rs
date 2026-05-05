@@ -124,13 +124,13 @@ pub fn load_words(connection: &Connection) -> Vec<WordData> {
         .unwrap();
     let word_iter = stmt
         .query_map([], |row| {
-            let addinionals: String = row.get(4)?;
+            let additional: String = row.get(4)?;
             Ok(WordData {
                 id: row.get(0)?,
                 key: row.get(1)?,
                 value: row.get(2)?,
                 tags: row.get(3)?,
-                additional: serde_json::from_str::<HashMap<String, String>>(&addinionals).unwrap(),
+                additional: serde_json::from_str::<HashMap<String, String>>(&additional).unwrap(),
                 group_id: row.get(5)?,
             })
         })

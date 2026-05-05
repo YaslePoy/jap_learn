@@ -397,7 +397,7 @@ impl CardSet {
     }
 
     fn history_len(&self) -> usize {
-        return min(MAX_HISTORY_LEN, (self.set.len() as f32 * MAX_HISTORY_LEN_PART) as usize);
+        min(MAX_HISTORY_LEN, (self.set.len() as f32 * MAX_HISTORY_LEN_PART) as usize)
     }
 
     pub fn len(&self) -> usize {

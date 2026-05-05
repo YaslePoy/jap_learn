@@ -15,7 +15,6 @@ use tokio::task::spawn_blocking;
 pub struct RepetitionState {
     pub settings: CardSetSettings,
     pub set: CardSet,
-    pub state: Arc<Mutex<AppState>>,
     current_word: WordData,
     current_statistic: CardStatistics,
     open: bool,
@@ -43,7 +42,6 @@ impl RepetitionState {
         RepetitionState {
             settings: set,
             set: card_set,
-            state,
             current_word: word,
             current_statistic: stat,
             open: false,
@@ -86,7 +84,7 @@ impl RepetitionState {
             self.answer(WordOpenMode::None)
         } else {
             self.open = true;
-            return Task::none();
+            Task::none()
         }
     }
 
@@ -223,7 +221,7 @@ impl RepetitionState {
 }
 
 impl KeyPressedPage for RepetitionState {
-    fn press(&mut self, message: &keyboard::Event) -> iced::Task<RootMessage> {
+    fn press(&mut self, message: &keyboard::Event) -> Task<RootMessage> {
         if let keyboard::Event::KeyPressed {
             key: _,
             modified_key: _,

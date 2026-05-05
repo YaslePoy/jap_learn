@@ -287,6 +287,6 @@ impl CardSetSettings {
     }
 
     pub fn require_speech(&self) -> bool {
-        return self.forward == "speech" || self.backward == "speech" 
+        self.forward == "speech" || self.backward == "speech" 
     }
 }

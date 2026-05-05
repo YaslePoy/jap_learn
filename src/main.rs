@@ -151,10 +151,10 @@ impl ScreenState {
 
     fn handle_keyboard(&mut self, message: Event) -> Task<RootMessage> {
         let page = self.stack.last_mut().unwrap();
-        return match page {
+        match page {
             Repetition(page) => page.press(&message),
             _ => Task::none(),
-        };
+        }
     }
 }
 
@@ -206,7 +206,7 @@ trait NavigatedPage<T> {
 }
 
 pub trait KeyPressedPage {
-    fn press(&mut self, message: &keyboard::Event) -> Task<RootMessage>;
+    fn press(&mut self, message: &Event) -> Task<RootMessage>;
 }
 
 /*pub fn danger_button(x: &Theme, status: Status) -> Style{

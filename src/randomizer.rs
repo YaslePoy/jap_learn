@@ -1,6 +1,6 @@
 
 pub mod randomizer {
-    use crate::randomizer::randomizer::RandomizerMessage::{Back, Start};
+    use crate::randomizer::randomizer::RandomizerMessage::{Back, Start, Edit};
     use crate::{NavigatedPage, Page, RootMessage};
     use iced::widget::{button, container, text_editor};
     use iced::Task;
@@ -21,7 +21,7 @@ pub mod randomizer {
 
     impl NavigatedPage<RandomizerMessage> for RandomizerState {
         fn navigate(&self, message: &RandomizerMessage) -> Option<Page> {
-            if let RandomizerMessage::Back = message {
+            if let Back = message {
                 return Some(Page::PreviousPage);
             }
             None
@@ -41,11 +41,11 @@ pub mod randomizer {
 
         pub fn update(&mut self, message: RandomizerMessage) -> Task<RootMessage> {
             match message {
-                RandomizerMessage::Edit(action) => {
+                Edit(action) => {
                     self.text.perform(action);
                     self.list = self.text.text().split("\n").map(|s| s.to_string()).collect();
                 },
-                RandomizerMessage::Start => {
+                Start => {
                     self.list.shuffle(&mut rand::rng());
                     self.text = text_editor::Content::with_text(self.list.join("\n").as_str());
                 }
@@ -58,7 +58,7 @@ pub mod randomizer {
             container(
                     iced::widget::column![
                         button("Назад").on_press(Back),
-                        text_editor(&self.text).on_action(RandomizerMessage::Edit
+                        text_editor(&self.text).on_action(Edit
                         ).width(400).height(400).placeholder("Каждый элемент с новой строки"),
                         button("Перемешать").on_press(Start),
                     ]

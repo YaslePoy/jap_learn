@@ -1,9 +1,8 @@
 use crate::dictionary::app_data_dir;
-use rodio::Decoder;
+use reqwest::Client;
 use sha2::{Digest, Sha256};
 use std::fs::File;
 use std::io::BufReader;
-use reqwest::Client;
 
 pub async fn get_voice(text: &str) -> BufReader<File> {
     let mut path = app_data_dir();
