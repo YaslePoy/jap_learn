@@ -251,6 +251,7 @@ impl WordData {
     }
 }
 
+#[derive(Clone)]
 pub struct WordGroup{
     pub id: u32,
     pub name: String,

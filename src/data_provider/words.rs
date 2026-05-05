@@ -67,12 +67,14 @@ fn create_tables(conn: &Connection) {
 pub fn add_word(word: &mut WordData, connection: &Connection) {
     let index = connection
         .query_row(
-            "INSERT INTO words (key, value, tags, more) VALUES (?1, ?2, ?3, ?4) RETURNING id",
+            "INSERT INTO words (key, value, tags, more, group_id) VALUES (?1, ?2, ?3, ?4, ?5\
+            ) RETURNING id",
             (
                 &word.key,
                 &word.value,
                 &word.tags,
                 serde_json::to_string(&word.additional).unwrap(),
+                &word.group_id,
             ),
             |row| row.get(0),
         )
@@ -163,4 +165,52 @@ pub fn load_word_groups(connection: &Connection) -> Vec<WordGroup> {
     }
 
     buffer
+}
+
+pub fn add_group(group: &mut WordGroup, connection: &Connection) {
+    let index = connection
+        .query_row(
+            "INSERT INTO word_group (name) VALUES (?1) RETURNING id",
+            (
+                &group.name,
+            ),
+            |row| row.get(0),
+        )
+        .unwrap_or_else(|e| {
+            println!("{}", e);
+            0
+        });
+
+    group.id = index;
+}
+
+pub fn update_group(group: &mut WordGroup, connection: &Connection) {
+    if group.id == 0 {
+        add_group(group, &connection);
+    } else {
+        connection
+            .execute(
+                "UPDATE word_group SET name = ?1 WHERE id = ?5",
+                (
+                    &group.name,
+                    &group.id,
+                ),
+            )
+            .unwrap_or_else(|e| {
+                println!("{}", e);
+                0
+            });
+    }
+}
+
+pub fn delete_group(group: &WordGroup, connection: &Connection) {
+    if group.id == 0 {
+        return;
+    }
+    connection
+        .execute("DELETE FROM word_group WHERE id = ?1", (&group.id,))
+        .unwrap_or_else(|e| {
+            println!("{}", e);
+            0
+        });
 }

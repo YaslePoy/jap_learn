@@ -1,14 +1,19 @@
-use crate::data_provider::words::{delete_word, update_word};
-use crate::dictionary::DictionaryMessage::Test;
+use crate::data_provider::words::{delete_group, delete_word, update_group, update_word};
+use crate::dictionary::DictionaryMessage::{
+    ChangeDirection, DeleteGroup, EditGroup, SaveGroup, Test,
+};
 use crate::dictionary_test::DictionaryQuizState;
-use crate::lang::WordData;
+use crate::lang::{WordData, WordGroup};
 use crate::word::WordState;
 use crate::Page::Word;
 use crate::{AppState, NavigatedPage, Page, RootMessage, DEFAULT_SPACING};
 use iced::alignment::Vertical::Center;
 use iced::widget::button::Style;
+use iced::widget::button::{danger, text};
+use iced::widget::space::horizontal;
 use iced::widget::*;
 use iced::{Border, Color, Length, Shadow, Task};
+use rand::random_range;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
@@ -23,6 +28,8 @@ pub struct DictionaryState {
     reverse: bool,
     search: String,
     no_typing: bool,
+    selected_group_index: usize,
+    reverse_list: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -41,7 +48,12 @@ pub enum DictionaryMessage {
     SetReverse(bool),
     Search(String),
     SetTyping(bool),
-    
+    CreateGroup,
+    EditGroup(String),
+    SaveGroup,
+    SelectGroup(usize),
+    DeleteGroup,
+    ChangeDirection,
 }
 
 impl NavigatedPage<DictionaryMessage> for DictionaryState {
@@ -67,7 +79,7 @@ impl NavigatedPage<DictionaryMessage> for DictionaryState {
             }
         }
         if let DictionaryMessage::WordAction(index) = message {
-            let word : WordData;
+            let word: WordData;
             {
                 let state = self.state.lock().unwrap();
                 let dict = &state.dictionary;
@@ -84,13 +96,16 @@ impl NavigatedPage<DictionaryMessage> for DictionaryState {
 impl DictionaryState {
     pub fn new(state: Arc<Mutex<AppState>>) -> Self {
         let len = state.lock().unwrap().dictionary.len();
+
         let mut result = DictionaryState {
             include_map: vec![false; len],
+            selected_group_index: 0,
             state,
             tag_map: HashMap::new(),
             reverse: false,
             search: "".to_string(),
             no_typing: false,
+            reverse_list: true,
         };
 
         result.update_tags();
@@ -101,8 +116,12 @@ impl DictionaryState {
     pub fn update(&mut self, message: DictionaryMessage) -> Task<RootMessage> {
         match message {
             DictionaryMessage::NewWord => {
-                let dict = &mut self.state.lock().unwrap().dictionary;
-                dict.push(WordData::new());
+                let mut state = self.state.lock().unwrap();
+                let mut word = WordData::new();
+                word.group_id = state.word_groups[self.selected_group_index].id.clone();
+
+                let dict = &mut state.dictionary;
+                dict.push(word);
                 self.include_map.push(false);
             }
 
@@ -152,7 +171,55 @@ impl DictionaryState {
                 update_word(word, &connection);
                 state.dictionary[i] = word.clone();
             }
-            _ => {}
+            Back => {}
+            Test => {}
+            DictionaryMessage::CreateGroup => {
+                let state = &mut self.state.lock().unwrap();
+
+                state.word_groups.push(WordGroup {
+                    id: 0,
+                    name: format!("Группа слов {}", random_range(100..1000)),
+                });
+            }
+            EditGroup(new) => {
+                let state = &mut self.state.lock().unwrap();
+                let group = state.word_groups.get_mut(self.selected_group_index);
+                if let Some(group) = group {
+                    group.name = new.clone();
+                }
+            }
+            SaveGroup => {
+                let state = &mut self.state.lock().unwrap();
+                let connection = &state.connection;
+                let group = &mut state
+                    .word_groups
+                    .get(self.selected_group_index)
+                    .unwrap()
+                    .clone();
+
+                update_group(group, connection);
+                state.word_groups[self.selected_group_index] = group.clone();
+            }
+            DictionaryMessage::SelectGroup(i) => {
+                self.selected_group_index = i;
+            }
+            DeleteGroup => {
+                if self.selected_group_index == 0 {
+                    return Task::none();
+                }
+                let state = &mut self.state.lock().unwrap();
+
+                if let Some(group) = state.word_groups.get(self.selected_group_index) {
+                    let connection = &state.connection;
+
+                    delete_group(group, connection);
+                    state.word_groups.remove(self.selected_group_index);
+                    self.selected_group_index = 0;
+                }
+            }
+            ChangeDirection => {
+                self.reverse_list = !self.reverse_list;
+            }
         }
 
         Task::none()
@@ -163,6 +230,7 @@ impl DictionaryState {
             row![
                 iced::widget::column![
                     button("Назад").on_press(Back),
+                    self.groups_panel(),
                     self.words_list(),
                     button("Добавить слово").on_press(DictionaryMessage::NewWord),
                 ]
@@ -178,17 +246,29 @@ impl DictionaryState {
     fn words_list(&self) -> iced::Element<'_, DictionaryMessage> {
         let mut col = Column::new().width(Length::Fill);
 
-        let mut i = 0;
-        let dict = &self.state.lock().unwrap().dictionary;
+        let mut range = (0..self.include_map.len()).collect::<Vec<_>>();
+        let state = self.state.lock().unwrap();
+        let group_id = state.word_groups[self.selected_group_index].id;
+        let dict = &mut state.dictionary.clone();
+
+        if self.reverse_list {
+            dict.reverse()
+        } else {
+            range = range.iter().rev().map(|x| *x).collect::<Vec<usize>>();
+        }
 
         for word in dict {
+            let i = range.pop().unwrap();
             if !self.search.is_empty() {
                 if word.key.contains(&self.search) == false
                     && word.value.contains(&self.search) == false
                 {
-                    i += 1;
                     continue;
                 }
+            }
+
+            if word.group_id != group_id {
+                continue;
             }
 
             let mut line = Row::new().width(Length::Fill).align_y(Center);
@@ -222,27 +302,26 @@ impl DictionaryState {
             );
 
             let line_button = || {
+                let action = DictionaryMessage::WordAction(i);
+
                 if word.id == 0 {
-                    return button("-")
-                        .on_press_with(move || DictionaryMessage::WordAction(i))
-                        .style(|_x, _status| Style {
-                            background: None,
-                            text_color: Color::BLACK,
-                            border: Border::default(),
-                            shadow: Shadow::default(),
-                            snap: false,
-                        });
+                    return button("-").on_press(action).style(|_x, _status| Style {
+                        background: None,
+                        text_color: Color::BLACK,
+                        border: Border::default(),
+                        shadow: Shadow::default(),
+                        snap: false,
+                    });
                 }
 
                 button("")
-                    .on_press_with(move || DictionaryMessage::WordAction(i))
+                    .on_press(DictionaryMessage::WordAction(i))
                     .width(15)
             };
 
             line = line.push(line_button()).push(space().width(10));
 
             col = col.push(line);
-            i += 1;
         }
 
         scrollable(col).height(Length::Fill).into()
@@ -351,6 +430,45 @@ impl DictionaryState {
                 self.include_map[i] = false;
             }
         }
+    }
+
+    fn groups_panel(&self) -> iced::Element<'_, DictionaryMessage> {
+        let mut row = Row::new();
+        row = row.push(
+            button("+")
+                .style(text)
+                .on_press(DictionaryMessage::CreateGroup),
+        );
+
+        let state = &self.state.lock().unwrap();
+        let groups = &state.word_groups;
+
+        let mut index = 0;
+        for group in groups {
+            row = row.push(
+                button(text!("{}", group.name.clone()))
+                    .style(text)
+                    .on_press(DictionaryMessage::SelectGroup(index)),
+            );
+            index = index + 1;
+        }
+
+        let group = state.word_groups[self.selected_group_index].clone();
+
+        iced::widget::column![
+            scrollable(row).width(Length::Fill).horizontal(),
+            row![
+                button("⇳").on_press(ChangeDirection),
+                text_input("Название группы слов", &group.name)
+                    .on_input(EditGroup)
+                    .width(250)
+                    .on_submit(SaveGroup),
+                horizontal(),
+                button("Удалить").style(danger).on_press(DeleteGroup),
+            ]
+            .spacing(DEFAULT_SPACING)
+        ]
+        .into()
     }
 }
 
