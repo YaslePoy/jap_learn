@@ -7,6 +7,7 @@ use crate::lang::{WordData, WordGroup};
 use crate::word::WordState;
 use crate::Page::Word;
 use crate::{AppState, NavigatedPage, Page, RootMessage, DEFAULT_SPACING};
+use chrono::{DateTime, TimeDelta, Utc};
 use iced::alignment::Vertical::Center;
 use iced::widget::button::Style;
 use iced::widget::button::{danger, text};
@@ -16,8 +17,10 @@ use iced::{Border, Color, Length, Shadow, Task};
 use rand::random_range;
 use std::collections::HashMap;
 use std::fs;
+use std::ops::Add;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use DictionaryMessage::Back;
 
 #[derive(Clone)]
@@ -30,6 +33,7 @@ pub struct DictionaryState {
     no_typing: bool,
     selected_group_index: usize,
     reverse_list: bool,
+    auto_save_queue: HashMap<usize, DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone)]
@@ -54,6 +58,7 @@ pub enum DictionaryMessage {
     SelectGroup(usize),
     DeleteGroup,
     ChangeDirection,
+    TrySave(usize),
 }
 
 impl NavigatedPage<DictionaryMessage> for DictionaryState {
@@ -104,8 +109,9 @@ impl DictionaryState {
             tag_map: HashMap::new(),
             reverse: false,
             search: "".to_string(),
-            no_typing: false,
+            no_typing: true,
             reverse_list: true,
+            auto_save_queue: HashMap::new(),
         };
 
         result.update_tags();
@@ -126,12 +132,19 @@ impl DictionaryState {
             }
 
             DictionaryMessage::SetKey(i, v) => {
-                let dict = &mut self.state.lock().unwrap().dictionary;
-                dict[i].key = v
+                {
+                    let dict = &mut self.state.lock().unwrap().dictionary;
+                    dict[i].key = v;
+                }
+                return self.launch_auto_save_offset(i)
             }
             DictionaryMessage::SetValue(i, v) => {
-                let dict = &mut self.state.lock().unwrap().dictionary;
-                dict[i].value = v
+                {
+                    let dict = &mut self.state.lock().unwrap().dictionary;
+                    dict[i].value = v
+                }
+                return self.launch_auto_save_offset(i)
+
             }
             DictionaryMessage::SetTags(i, v) => {
                 {
@@ -140,6 +153,7 @@ impl DictionaryState {
                 }
 
                 self.update_tags();
+                return self.launch_auto_save_offset(i)
             }
 
             DictionaryMessage::WordAction(i) => {
@@ -147,12 +161,18 @@ impl DictionaryState {
                 let dict = &mut state.dictionary;
                 let word = dict.remove(i);
                 self.include_map.remove(i);
+                self.auto_save_queue.remove(&i);
                 delete_word(&word, &state.connection)
             }
             DictionaryMessage::Include(i, b) => self.include_map[i] = b,
             DictionaryMessage::IncludeTag(t, v) => {
+                let index : u32;
+                {
+                    let mut state = self.state.lock().unwrap();
+                    index = state.word_groups[self.selected_group_index].id;
+                }
                 self.tag_map.insert(t, v);
-                self.update_words_include()
+                self.update_words_include(index)
             }
 
             DictionaryMessage::ResetTags => {
@@ -165,12 +185,7 @@ impl DictionaryState {
             }
             DictionaryMessage::SetTyping(b) => self.no_typing = b,
             DictionaryMessage::SubmitWord(i) => {
-                let state = &mut self.state.lock().unwrap();
-                let connection = &state.connection;
-                let word = &mut state.dictionary.get(i).unwrap().clone();
-
-                update_word(word, &connection);
-                state.dictionary[i] = word.clone();
+                self.save_word(i)
             }
             Back => {}
             Test => {}
@@ -203,6 +218,13 @@ impl DictionaryState {
             }
             DictionaryMessage::SelectGroup(i) => {
                 self.selected_group_index = i;
+                let index : u32;
+                {
+                    let state = self.state.lock().unwrap();
+                    index = state.word_groups[i].id;
+                }
+                self.update_words_include(index)
+
             }
             DeleteGroup => {
                 if self.selected_group_index == 0 {
@@ -220,10 +242,34 @@ impl DictionaryState {
             }
             ChangeDirection => {
                 self.reverse_list = !self.reverse_list;
+            },
+            DictionaryMessage::TrySave(word_index) => {
+                let now = Utc::now();
+                if !self.auto_save_queue.contains_key(&word_index) { return Task::none(); }
+                if self.auto_save_queue[&word_index] <= now {
+                    self.auto_save_queue.remove(&word_index);
+                    self.save_word(word_index);
+                }
             }
         }
 
         Task::none()
+    }
+
+    fn save_word(&mut self, i: usize) {
+        let state = &mut self.state.lock().unwrap();
+        let connection = &state.connection;
+        let word = &mut state.dictionary.get(i).unwrap().clone();
+
+        update_word(word, &connection);
+        state.dictionary[i] = word.clone();
+    }
+
+    fn launch_auto_save_offset(&mut self, index: usize) -> Task<RootMessage> {
+        let save_time = Utc::now().add(TimeDelta::milliseconds(2800));
+        self.auto_save_queue.insert(index, save_time);
+        let message = RootMessage::Dictionary(DictionaryMessage::TrySave(index));
+        Task::perform(async { tokio::time::sleep(Duration::from_secs(3)).await }, |_|  message)
     }
 
     pub fn view(&self) -> iced::Element<'_, DictionaryMessage> {
@@ -281,14 +327,14 @@ impl DictionaryState {
                 .push(space().width(10));
 
             line = line.push(
-                text_input("Ключ", &word.key)
+                text_input("Слово", &word.key)
                     .size(20)
                     .width(Length::Fill)
                     .on_input(move |string| DictionaryMessage::SetKey(i, string))
                     .on_submit(DictionaryMessage::SubmitWord(i)),
             );
             line = line.push(
-                text_input("Значение", &word.value)
+                text_input("Перевод", &word.value)
                     .size(20)
                     .width(Length::Fill)
                     .on_input(move |string| DictionaryMessage::SetValue(i, string))
@@ -408,7 +454,7 @@ impl DictionaryState {
         }
     }
 
-    fn update_words_include(&mut self) {
+    fn update_words_include(&mut self, group_id: u32) {
         let include_tags = self
             .tag_map
             .iter()
@@ -425,7 +471,7 @@ impl DictionaryState {
 
         for i in 0..self.include_map.len() {
             let tags = split_with_coma(dict[i].tags.clone());
-            if tags.iter().all(|t| include_tags.contains(t)) {
+            if tags.iter().all(|t| include_tags.contains(t)) && dict[i].group_id == group_id {
                 self.include_map[i] = true;
             } else {
                 self.include_map[i] = false;

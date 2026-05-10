@@ -265,6 +265,8 @@ impl CardSetSettings {
 
         let ast = ast.unwrap();
 
+        let groups = &state.word_groups;
+
         for word in &state.dictionary {
             let mut more = rhai::Map::new();
             for iced in &word.additional {
@@ -275,7 +277,8 @@ impl CardSetSettings {
                 .push_constant("key", word.key.clone())
                 .push_constant("value", word.value.clone())
                 .push_constant("tags", word.tags.clone())
-                .push_constant("more", more);
+                .push_constant("more", more)
+                .push_constant("group", groups.iter().find(|g| g.id == word.group_id).cloned().unwrap().name);
 
             let result = engine.eval_ast_with_scope::<bool>(&mut scope, &ast);
             if result.is_ok() && result.unwrap() {

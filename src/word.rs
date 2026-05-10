@@ -58,10 +58,7 @@ impl WordState {
             }
             WordMessage::SetAdditional(key, value) => {
                 match key.as_str() {
-                    "reading" => {
-                        self.word.additional.insert(key, value.clone());
-                    },
-                    _ => todo!()
+                    _ => {    self.word.additional.insert(key, value.clone());}
 
                 }
             },
@@ -76,6 +73,9 @@ impl WordState {
         let mut fast_add = row![];
         if !self.word.additional.contains_key("reading") {
             fast_add = fast_add.push(button("Чтение").style(button::text).on_press(WordMessage::AddAdditional("reading".to_string())));
+        }
+        if !self.word.additional.contains_key("description") {
+            fast_add = fast_add.push(button("Описание").style(button::text).on_press(WordMessage::AddAdditional("description".to_string())));
         }
         let mut col = iced::widget::column![
             button("Назад").on_press(WordMessage::Back),
@@ -112,6 +112,7 @@ impl WordState {
     fn get_view_for_more(&self, value: (&String, &String)) -> Element<'_, WordMessage> {
         match value.0.as_str() {
             "reading" => self.reading_field(value),
+            "description" => self.description_field(value),
             _ => space().into(),
         }
     }
@@ -124,6 +125,14 @@ impl WordState {
         ].spacing(DEFAULT_SPACING)
         .into()
     }
+
+    fn description_field(&self, value: (&String, &String)) -> Element<'_, WordMessage> {
+        column![
+            text!("Описание"),
+            text_input("description", &value.1)
+                .on_input(|string| WordMessage::SetAdditional("description".to_string(), string))
+        ].spacing(DEFAULT_SPACING)
+            .into()    }
 }
 #[derive(Debug, Clone)]
 pub enum WordMessage {
