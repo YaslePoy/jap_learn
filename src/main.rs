@@ -63,7 +63,7 @@ pub enum RootMessage {
     Keyboard(Event),
 }
 
-enum Page {
+pub enum Page {
     Selector(SelectorState),
     Quiz(QuizState),
     Writing(WritingState),
@@ -208,13 +208,3 @@ trait NavigatedPage<T> {
 pub trait KeyPressedPage {
     fn press(&mut self, message: &Event) -> Task<RootMessage>;
 }
-
-/*pub fn danger_button(x: &Theme, status: Status) -> Style{
-    Style {
-        background: Some(Color(x.palette().danger)),
-        text_color: x.palette().text,
-        border: Border::default().rounded(2),
-        shadow: Default::default(),
-        snap: false,
-    }
-}*/

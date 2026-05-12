@@ -144,7 +144,7 @@ impl DictionaryQuizState {
             self.score.total += 1;
         }
         if self.answer == self.correct
-            || split_with_coma(self.correct.clone()).contains(&self.answer)
+            || split_with_coma(self.correct.as_str()).contains(&self.answer)
         {
             if self.is_help == false {
                 self.score.correct += 1;

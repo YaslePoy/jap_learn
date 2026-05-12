@@ -349,11 +349,12 @@ impl CardSet {
             if !word_ids.contains(&stat.word_id) {
                 delete_stat(&stat, &state_locked.connection);
                 current_set.remove(index);
+            }else{
+                index += 1;
             }
-            index += 1;
         }
 
-        let weights = current_set.iter().map(|s| (100.0 / s.calculated_score()).powf(2.0)).collect::<Vec<f32>>();
+        let weights = current_set.iter().map(|s| (100.0 / s.calculated_score()).powf(2.0) * 2.0).collect::<Vec<f32>>();
         let indexes = WeightedIndex::new(weights).unwrap();
 
         Self {

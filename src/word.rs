@@ -41,7 +41,8 @@ impl WordState {
             WordMessage::Save => {
                 let mut state = self.state.lock().unwrap();
                 state.dictionary[self.index] = self.word.clone();
-                update_word(&mut self.word, &state.connection)
+                update_word(&mut self.word, &state.connection);
+                return Task::done(RootMessage::Word(WordMessage::Back))
             }
             WordMessage::Delete => {
                 let mut state = self.state.lock().unwrap();

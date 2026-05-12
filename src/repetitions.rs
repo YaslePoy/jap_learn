@@ -195,7 +195,7 @@ impl RepetitionsState {
                     .style(move |_x: &Theme, _status| Style {
                         background: None,
                         text_color: if self.correct_filters[i.clone()] {
-                            _x.palette().text
+                            _x.palette().primary
                         } else {
                             _x.palette().warning
                         },

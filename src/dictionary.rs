@@ -15,7 +15,10 @@ use iced::widget::space::horizontal;
 use iced::widget::*;
 use iced::{Border, Color, Length, Shadow, Task};
 use rand::random_range;
-use std::collections::HashMap;
+use rayon::iter::IndexedParallelIterator;
+use rayon::iter::ParallelIterator;
+use rayon::prelude::IntoParallelRefIterator;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::ops::Add;
 use std::path::PathBuf;
@@ -71,11 +74,14 @@ impl NavigatedPage<DictionaryMessage> for DictionaryState {
                 let mut words = vec![];
                 let dict = &self.state.lock().unwrap().dictionary;
 
-                for i in 0..self.include_map.len() {
-                    if self.include_map[i] {
-                        words.push(dict[i].clone());
-                    }
-                }
+                words = self
+                    .include_map
+                    .par_iter()
+                    .zip(0..self.include_map.len())
+                    .filter(|(flag, _)| **flag)
+                    .map(|(_, index)| dict[index].clone())
+                    .collect();
+
                 return Some(Page::DictionaryQuiz(DictionaryQuizState::new(
                     words,
                     self.reverse,
@@ -136,15 +142,14 @@ impl DictionaryState {
                     let dict = &mut self.state.lock().unwrap().dictionary;
                     dict[i].key = v;
                 }
-                return self.launch_auto_save_offset(i)
+                return self.launch_auto_save_offset(i);
             }
             DictionaryMessage::SetValue(i, v) => {
                 {
                     let dict = &mut self.state.lock().unwrap().dictionary;
                     dict[i].value = v
                 }
-                return self.launch_auto_save_offset(i)
-
+                return self.launch_auto_save_offset(i);
             }
             DictionaryMessage::SetTags(i, v) => {
                 {
@@ -153,7 +158,7 @@ impl DictionaryState {
                 }
 
                 self.update_tags();
-                return self.launch_auto_save_offset(i)
+                return self.launch_auto_save_offset(i);
             }
 
             DictionaryMessage::WordAction(i) => {
@@ -166,9 +171,9 @@ impl DictionaryState {
             }
             DictionaryMessage::Include(i, b) => self.include_map[i] = b,
             DictionaryMessage::IncludeTag(t, v) => {
-                let index : u32;
+                let index: u32;
                 {
-                    let mut state = self.state.lock().unwrap();
+                    let state = self.state.lock().unwrap();
                     index = state.word_groups[self.selected_group_index].id;
                 }
                 self.tag_map.insert(t, v);
@@ -184,9 +189,7 @@ impl DictionaryState {
                 self.search = s;
             }
             DictionaryMessage::SetTyping(b) => self.no_typing = b,
-            DictionaryMessage::SubmitWord(i) => {
-                self.save_word(i)
-            }
+            DictionaryMessage::SubmitWord(i) => self.save_word(i),
             Back => {}
             Test => {}
             DictionaryMessage::CreateGroup => {
@@ -218,13 +221,12 @@ impl DictionaryState {
             }
             DictionaryMessage::SelectGroup(i) => {
                 self.selected_group_index = i;
-                let index : u32;
+                let index: u32;
                 {
                     let state = self.state.lock().unwrap();
                     index = state.word_groups[i].id;
                 }
                 self.update_words_include(index)
-
             }
             DeleteGroup => {
                 if self.selected_group_index == 0 {
@@ -242,10 +244,12 @@ impl DictionaryState {
             }
             ChangeDirection => {
                 self.reverse_list = !self.reverse_list;
-            },
+            }
             DictionaryMessage::TrySave(word_index) => {
                 let now = Utc::now();
-                if !self.auto_save_queue.contains_key(&word_index) { return Task::none(); }
+                if !self.auto_save_queue.contains_key(&word_index) {
+                    return Task::none();
+                }
                 if self.auto_save_queue[&word_index] <= now {
                     self.auto_save_queue.remove(&word_index);
                     self.save_word(word_index);
@@ -266,10 +270,13 @@ impl DictionaryState {
     }
 
     fn launch_auto_save_offset(&mut self, index: usize) -> Task<RootMessage> {
-        let save_time = Utc::now().add(TimeDelta::milliseconds(2800));
+        let save_time = Utc::now().add(TimeDelta::milliseconds(900));
         self.auto_save_queue.insert(index, save_time);
         let message = RootMessage::Dictionary(DictionaryMessage::TrySave(index));
-        Task::perform(async { tokio::time::sleep(Duration::from_secs(3)).await }, |_|  message)
+        Task::perform(
+            async { tokio::time::sleep(Duration::from_secs(1)).await },
+            |_| message,
+        )
     }
 
     pub fn view(&self) -> iced::Element<'_, DictionaryMessage> {
@@ -429,36 +436,40 @@ impl DictionaryState {
     }
 
     fn update_tags(&mut self) {
-        let mut tags_list: Vec<String> = vec![];
+        let mut tags_list: HashSet<String> = HashSet::new();
         let dict = &self.state.lock().unwrap().dictionary;
 
-        for element in dict {
-            tags_list.append(&mut split_with_coma(element.tags.clone()));
-        }
+        dict.iter().for_each(|element| {
+            split_with_coma(element.tags.as_str())
+                .iter()
+                .for_each(|tag| {
+                    tags_list.insert(tag.clone());
+                });
+        });
 
         let current_tags = self
             .tag_map
             .keys()
             .map(|k| k.clone().to_string())
             .collect::<Vec<String>>();
-        for current in current_tags {
-            if !tags_list.contains(&current) {
-                self.tag_map.remove(&current.clone());
-            }
-        }
 
-        for found_tag in &tags_list {
-            if !self.tag_map.contains_key(&found_tag.clone()) {
-                self.tag_map.insert(found_tag.clone(), false);
-            }
-        }
+        current_tags
+            .iter()
+            .filter(|tag| !tags_list.contains(*tag))
+            .for_each(|tag| {
+                self.tag_map.remove(tag);
+            });
+
+        tags_list.iter().for_each(|tag| {
+            self.tag_map.insert(tag.clone(), false);
+        });
     }
 
     fn update_words_include(&mut self, group_id: u32) {
         let include_tags = self
             .tag_map
             .iter()
-            .filter(|i| *(*i).1)
+            .filter(|(_, value)| **value)
             .map(|(t, _)| t.clone())
             .collect::<Vec<String>>();
 
@@ -469,14 +480,11 @@ impl DictionaryState {
 
         let dict = &self.state.lock().unwrap().dictionary;
 
-        for i in 0..self.include_map.len() {
-            let tags = split_with_coma(dict[i].tags.clone());
-            if tags.iter().all(|t| include_tags.contains(t)) && dict[i].group_id == group_id {
-                self.include_map[i] = true;
-            } else {
-                self.include_map[i] = false;
-            }
-        }
+        self.include_map = dict.par_iter()
+            .map(|word| (split_with_coma(word.tags.as_str()), word.group_id))
+            .map(|(tags, word_group_id)| {
+                tags.iter().all(|t| include_tags.contains(t)) && word_group_id == group_id
+            }).collect();
     }
 
     fn groups_panel(&self) -> iced::Element<'_, DictionaryMessage> {
@@ -519,7 +527,7 @@ impl DictionaryState {
     }
 }
 
-pub fn split_with_coma(ts: String) -> Vec<String> {
+pub fn split_with_coma(ts: &str) -> Vec<String> {
     ts.split(',')
         .map(|ts| ts.to_lowercase().trim().to_string())
         .filter(|t| !t.is_empty())
